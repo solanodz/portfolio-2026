@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 
 import { cn } from "@/lib/utils";
+import { slugifyHeading } from "@/lib/article-headings";
+import { CodeBlock } from "./code-block";
 import { Mermaid } from "./mermaid";
 
 function ArticleLink(props: ComponentPropsWithoutRef<"a">) {
@@ -32,16 +34,75 @@ function ArticleLink(props: ComponentPropsWithoutRef<"a">) {
   );
 }
 
+function ArticleCode(props: ComponentPropsWithoutRef<"code">) {
+  if ("data-language" in props) {
+    return <code {...props} />;
+  }
+
+  return (
+    <code
+      {...props}
+      className={cn(
+        "rounded border border-line bg-bg-subtle px-1 py-0.5 font-mono text-[0.9em] text-text",
+        props.className,
+      )}
+    />
+  );
+}
+
+function ArticlePre(props: ComponentPropsWithoutRef<"pre">) {
+  const language =
+    (props as ComponentPropsWithoutRef<"pre"> & { "data-language"?: string })[
+      "data-language"
+    ] ?? "text";
+
+  return (
+    <CodeBlock language={language}>
+      <pre {...props} />
+    </CodeBlock>
+  );
+}
+
+function getNodeText(children: React.ReactNode): string {
+  if (typeof children === "string" || typeof children === "number") {
+    return String(children);
+  }
+
+  if (Array.isArray(children)) {
+    return children.map(getNodeText).join("");
+  }
+
+  if (children && typeof children === "object" && "props" in children) {
+    return getNodeText(
+      (children as { props?: { children?: React.ReactNode } }).props?.children,
+    );
+  }
+
+  return "";
+}
+
 export const mdxComponents = {
   Mermaid,
-  h2: (props: ComponentPropsWithoutRef<"h2">) => (
-    <h2 {...props} className="mt-12 text-lg font-semibold tracking-tight text-text" />
+  h2: ({ children, ...props }: ComponentPropsWithoutRef<"h2">) => (
+    <h2
+      id={slugifyHeading(getNodeText(children))}
+      {...props}
+      className="scroll-mt-24 mt-12 text-lg font-semibold tracking-tight text-text"
+    >
+      {children}
+    </h2>
   ),
-  h3: (props: ComponentPropsWithoutRef<"h3">) => (
-    <h3 {...props} className="mt-8 text-base font-semibold tracking-tight text-text" />
+  h3: ({ children, ...props }: ComponentPropsWithoutRef<"h3">) => (
+    <h3
+      id={slugifyHeading(getNodeText(children))}
+      {...props}
+      className="scroll-mt-24 mt-8 text-base font-semibold tracking-tight text-text"
+    >
+      {children}
+    </h3>
   ),
   p: (props: ComponentPropsWithoutRef<"p">) => (
-    <p {...props} className="mt-5 text-secondary" />
+    <div {...props} className="mt-5 text-secondary" />
   ),
   a: ArticleLink,
   ul: (props: ComponentPropsWithoutRef<"ul">) => (
@@ -67,21 +128,8 @@ export const mdxComponents = {
       alt={props.alt ?? ""}
     />
   ),
-  pre: (props: ComponentPropsWithoutRef<"pre">) => (
-    <pre
-      {...props}
-      className="mt-6 overflow-x-auto rounded-lg border border-line bg-bg-subtle p-4 text-sm"
-    />
-  ),
-  code: (props: ComponentPropsWithoutRef<"code">) => (
-    <code
-      {...props}
-      className={cn(
-        "rounded border border-line bg-bg-subtle px-1 py-0.5 font-mono text-[0.9em] text-text",
-        props.className,
-      )}
-    />
-  ),
+  pre: ArticlePre,
+  code: ArticleCode,
   table: (props: ComponentPropsWithoutRef<"table">) => (
     <div className="mt-6 overflow-x-auto">
       <table {...props} className="w-full border-collapse text-sm" />

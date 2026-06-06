@@ -53,17 +53,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="light"
       className={cn("h-full", "antialiased", inter.variable, mono.variable, "font-sans", geist.variable)}
       suppressHydrationWarning
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);else if(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.setAttribute("data-theme","dark")}catch(e){}})()`,
-          }}
-        />
-      </head>
       <body className="min-h-full bg-bg font-sans text-text">
         <ThemeProvider>
           <ThemeToggle />

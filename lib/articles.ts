@@ -3,6 +3,8 @@ import path from "node:path";
 
 import matter from "gray-matter";
 
+import { getArticleHeadings, type ArticleHeading } from "./article-headings";
+
 const articlesDirectory = path.join(process.cwd(), "content", "articles");
 const articleFileExtension = ".mdx";
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,6 +23,7 @@ export type Article = {
   slug: string;
   content: string;
   metadata: ArticleMetadata;
+  headings: ArticleHeading[];
 };
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -144,6 +147,7 @@ export async function getAllArticles() {
         slug,
         content: parsed.content,
         metadata: validateMetadata(parsed.data, filename),
+        headings: getArticleHeadings(parsed.content),
       };
     }),
   );

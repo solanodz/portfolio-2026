@@ -1,0 +1,136 @@
+---
+title: "MCP Servers: A Practical Introduction"
+publishedAt: "2026-06-06"
+summary: "A practical guide to Model Context Protocol servers: what they expose, how clients call them, and how to design tools that stay predictable."
+keywords:
+  - AI
+  - MCP
+  - Agents
+  - Tooling
+draft: false
+---
+
+Model Context Protocol servers give AI clients a standard way to reach external capabilities. Instead of hard-coding every database query, API call, or filesystem operation into an agent, you expose a small set of typed tools and resources. The client discovers those capabilities, decides when to use them, and sends structured arguments to the server.
+
+That separation matters because agents are much easier to reason about when their powers are explicit. A good MCP server is not just a wrapper around an API. It is a boundary: it says what the model can do, what shape the input must have, and what output the rest of the workflow can trust.
+
+## The Basic Shape
+
+At a high level, an MCP setup has three parts:
+
+- A client, such as an editor, agent runtime, or desktop app.
+- One or more servers that expose tools and resources.
+- The external systems those servers know how to talk to.
+
+<Mermaid chart={`
+flowchart LR
+  Client[AI client] -->|list tools/resources| Server[MCP server]
+  Client -->|call tool with JSON args| Server
+  Server -->|read/write| API[External API]
+  Server -->|read| Files[Files or docs]
+  Server -->|structured result| Client
+`} />
+
+The important detail is that the model usually does not talk to the external API directly. It asks the client to call a tool, and the client sends a structured request to the MCP server.
+
+## Tools, Resources, And Prompts
+
+Most servers expose a mix of three concepts:
+
+| Concept | Use it for | Example |
+| --- | --- | --- |
+| Tool | An action with structured input | `create_issue`, `run_query`, `send_message` |
+| Resource | Read-only context addressed by URI | `repo://docs/architecture`, `db://schema/users` |
+| Prompt | A reusable instruction template | `review_pull_request`, `summarize_incident` |
+
+Tools are the most powerful surface because they can cause side effects. That is where schema design matters most. The input should be narrow, typed, and boring.
+
+```json
+{
+  "name": "create_issue",
+  "description": "Create a tracked implementation issue.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Short issue title."
+      },
+      "body": {
+        "type": "string",
+        "description": "Markdown issue body."
+      },
+      "labels": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "required": ["title", "body"]
+  }
+}
+```
+
+The goal is not to expose everything. The goal is to expose the smallest operation that the client can call safely and repeatedly.
+
+## A Typical Tool Call
+
+The request flow is simple, but there are several places where good design pays off:
+
+<Mermaid chart={`
+sequenceDiagram
+  participant User
+  participant Client as AI client
+  participant Server as MCP server
+  participant System as External system
+
+  User->>Client: "Create an issue for the blog bug"
+  Client->>Server: list_tools
+  Server-->>Client: create_issue schema
+  Client->>Server: call create_issue({ title, body, labels })
+  Server->>System: POST /issues
+  System-->>Server: issue URL
+  Server-->>Client: structured result
+  Client-->>User: "Created issue #42"
+`} />
+
+The client discovers the tool first. That lets the server describe the contract at runtime, including names, descriptions, and JSON schemas. When the model chooses a tool, the client validates and sends the arguments. The server performs the action and returns a result that the client can summarize or continue using.
+
+## Minimal Server Sketch
+
+A server implementation usually registers tools with a name, description, input schema, and handler. The exact SDK API depends on the language and runtime, but the shape tends to look like this:
+
+```ts
+server.tool(
+  "search_docs",
+  {
+    query: z.string().min(1),
+    limit: z.number().int().min(1).max(10).default(5),
+  },
+  async ({ query, limit }) => {
+    const results = await docs.search({ query, limit });
+
+    return {
+      content: results.map((result) => ({
+        type: "text",
+        text: `${result.title}\n${result.url}\n${result.excerpt}`,
+      })),
+    };
+  },
+);
+```
+
+The handler should return concise, structured information. Agents do worse when a tool dumps an entire API response full of irrelevant fields. Trim the result to what the next reasoning step needs.
+
+## Design Rules That Help
+
+- Use narrow tools. `delete_database` is a bad tool. `archive_project` with confirmation fields and clear constraints is better.
+- Prefer domain language over API language. If users talk about articles, expose `publish_article`, not `update_record`.
+- Validate aggressively. The schema is not documentation only; it is part of the safety boundary.
+- Return stable shapes. If the client has to parse prose to find an ID, the tool result is too loose.
+- Make destructive actions explicit. A tool that mutates state should say so in the description and require enough input to avoid accidental calls.
+
+## When To Build One
+
+An MCP server is worth it when an agent needs repeated access to a capability that is too important or too specific to leave as free-form instructions. Good candidates are project docs, issue trackers, deployment platforms, databases, internal APIs, and local development workflows.
+
+The best servers feel small. They do not try to make every operation possible. They make the right operation easy to discover, hard to misuse, and simple to verify.
