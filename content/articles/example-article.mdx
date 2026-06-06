@@ -1,0 +1,40 @@
+---
+title: "Example Article"
+publishedAt: "2026-06-06"
+summary: "A draft template that documents the article format and rich content components."
+keywords:
+  - AI
+  - Engineering
+  - Notes
+draft: true
+---
+
+This draft article is a template for future writing. Remove `draft: true` when the article is ready to publish.
+
+## Images
+
+Place article assets under `public/blog/example-article/` and reference them with absolute paths:
+
+```mdx
+![Architecture diagram](/blog/example-article/architecture.png)
+```
+
+## Mermaid
+
+Use the explicit `Mermaid` component for diagrams:
+
+<Mermaid chart={`
+flowchart TD
+  A[Idea] --> B[Prototype]
+  B --> C[Production]
+`} />
+
+## Tables
+
+| Field | Required |
+| --- | --- |
+| title | Yes |
+| publishedAt | Yes |
+| updatedAt | No |
+| summary | Yes |
+| keywords | Yes |

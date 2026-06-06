@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { CopyEmailButton } from "./copy-email-button";
 import { profile } from "../data";
 
@@ -64,6 +66,9 @@ export function SiteFooter() {
           aria-label="Contact and links"
           className="flex flex-wrap items-center gap-4"
         >
+          <Link href="/blog" className="icon-hover text-sm text-muted">
+            Blog
+          </Link>
           <CopyEmailButton
             email={profile.email}
             iconOnly
