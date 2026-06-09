@@ -1,0 +1,225 @@
+---
+title: "Observability for AI Systems: Tracing, Evals, and Feedback Loops"
+publishedAt: "2026-06-14"
+summary: "AI-powered systems need a different kind of observability than traditional software. This guide covers tracing LLM calls, tracking evaluation scores over time, and building feedback loops that let you improve continuously."
+keywords:
+  - AI engineering
+  - Observability
+  - LLM
+  - Tracing
+  - Production
+draft: true
+---
+
+Software observability is mature. Logs, metrics, traces, and alerts form a well-understood stack. Pick a framework, instrument your code, ship it, and you can debug production issues, track latency, and understand user behavior.
+
+AI-powered systems break this model in subtle ways. The outputs are non-deterministic. The quality is subjective. The failure modes are different — not crashes but wrong answers, not timeouts but plausible hallucinations. Traditional observability catches none of this.
+
+The fix is a different observability stack: one that traces LLM calls with full context, tracks evaluation scores as first-class metrics, and closes the feedback loop from production back to the development process.
+
+## The Tracing Problem
+
+A single user request to an AI-powered application can trigger multiple LLM calls: retrieval and generation, multi-step reasoning, tool calls and their results. In a traditional system, each of these would be a separate trace span in a distributed trace. In an AI system, they are related but not tracked together.
+
+The minimum viable trace for an LLM call captures:
+
+```python
+@dataclass
+class LLMCallSpan:
+    span_id: str
+    trace_id: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    latency_ms: float
+    prompt: str          # Truncated for storage
+    completion: str      # Truncated for storage
+    parsed_output: Any   # If output is structured
+    status: Literal["success", "error", "truncated"]
+    error: str | None
+    metadata: dict       # Request-level tags (user_id, feature, etc.)
+```
+
+This is the raw material. With it, you can answer: how many LLM calls per user session, what is the token spend per feature, where is latency coming from (prompt evaluation vs. generation), and what errors are occurring.
+
+Without it, you have none of this visibility.
+
+## From Traces to Metrics
+
+Raw traces are not enough. You need aggregated metrics that answer the questions you actually have in production.
+
+**Cost per feature:**
+```python
+def compute_cost_per_feature(traces: list[LLMCallSpan]) -> dict[str, float]:
+    cost_per_token = 0.00001  # Example for GPT-4o
+    feature_costs = {}
+    for span in traces:
+        feature = span.metadata.get("feature", "unknown")
+        tokens = span.input_tokens + span.output_tokens
+        cost = tokens * cost_per_token
+        feature_costs[feature] = feature_costs.get(feature, 0) + cost
+    return feature_costs
+```
+
+**Latency percentiles by model:**
+```python
+def latency_by_model(traces: list[LLMCallSpan]) -> dict[str, dict]:
+    by_model = defaultdict(list)
+    for span in traces:
+        by_model[span.model].append(span.latency_ms)
+
+    return {
+        model: {
+            "p50": statistics.median(lats),
+            "p95": statistics.quantiles(lats, n=20)[18],
+            "p99": statistics.quantiles(lats, n=100)[97],
+        }
+        for model, lats in by_model.items()
+    }
+```
+
+**Error rates:**
+```python
+def error_rate_by_type(traces: list[LLMCallSpan]) -> dict[str, float]:
+    total = len(traces)
+    errors = defaultdict(int)
+    for span in traces:
+        if span.status != "success":
+            errors[span.error or span.status] += 1
+    return {k: v / total for k, v in errors.items()}
+```
+
+These metrics belong in a dashboard alongside your standard application metrics. AI cost and latency are now first-class infrastructure concerns.
+
+## Evaluation as a Metric
+
+Evaluation scores are not a one-time measurement. They are a production metric that you track continuously.
+
+Treat the evaluation score as a time series:
+
+```python
+@dataclass
+class EvalMetricPoint:
+    timestamp: datetime
+    feature: str
+    score: float          # 0-1 pass rate or similar
+    sample_size: int
+    dimensions: dict      # Breakdown by topic, difficulty, etc.
+```
+
+Alert on score drops. If the pass rate for your RAG pipeline drops from 0.87 to 0.79 over a week, something changed — a model update, a corpus change, a query distribution shift. Find out what.
+
+<Mermaid chart={`
+flowchart TD
+    A[Production traffic] --> B[Sampled eval]
+    B --> C[Score computed]
+    C --> D[Metrics stored]
+    D --> E[Dashboard]
+    E --> F{Score within bounds?}
+    F -->|Yes| G[No action]
+    F -->|No| H[Alert + investigate]
+    H --> I[Root cause]
+    I --> J[Fix deployed]
+    J --> B
+`} />
+
+The alert threshold should be based on observed variance, not a fixed number. A system that normally varies between 0.85 and 0.92 should alert on a drop below 0.80. A system that is normally between 0.92 and 0.95 should alert on a drop below 0.90.
+
+## Structured Logging for AI Decisions
+
+The hardest thing to debug in an AI system is why it made a specific decision. Why did the model recommend that product? Why did it classify that email as spam? Why did it generate that answer?
+
+Traditional logs do not help. A completion log that shows the full response does not show the retrieval results that shaped it, the prompt that framed the question, or the intermediate reasoning steps.
+
+Store the full context for each decision:
+
+```python
+async def log_ai_decision(decision: AIDecision):
+    structured = {
+        "event": "ai_decision",
+        "decision_id": decision.id,
+        "feature": decision.feature,
+        "input_hash": hash(decision.input),  # For debugging without storing PII
+        "retrieval_results": [
+            {"doc_id": r.id, "score": r.score, "text_hash": hash(r.text[:200])}
+            for r in decision.retrieval_results
+        ],
+        "prompt_template": decision.prompt_template,
+        "model": decision.model,
+        "output_hash": hash(decision.output),
+        "latency_ms": decision.latency_ms,
+        "eval_score": decision.eval_score,  # If evaluated
+        "user_feedback": decision.user_feedback,  # If provided
+    }
+    await event_logger.log(structured)
+```
+
+With this in place, you can reconstruct any decision in production. You can answer "why did the model say X?" by looking at the retrieval results, the prompt, and the model that was used.
+
+## User Feedback Loops
+
+The most underused signal in AI systems is user feedback. When a user corrects an AI output, edits a generated summary, or rates an answer as helpful, that is an explicit evaluation data point.
+
+Capture it, store it, and use it to improve the system.
+
+```python
+@dataclass
+class UserFeedback:
+    decision_id: str
+    signal: Literal["correct", "incorrect", "edited", "dismissed"]
+    correction: str | None   # If the user edited the output
+    feedback_text: str | None
+    timestamp: datetime
+
+async def capture_feedback(decision_id: str, signal: str, correction: str = None):
+    feedback = UserFeedback(
+        decision_id=decision_id,
+        signal=signal,
+        correction=correction,
+        timestamp=datetime.now()
+    )
+    await feedback_store.insert(feedback)
+
+    # Trigger re-evaluation of the case
+    await trigger_reEval(decision_id)
+```
+
+Use corrective feedback to expand your test cases. Every user correction is a real-world failure mode that your test suite did not cover. Add it.
+
+## The Alert Inventory
+
+For a production AI system, you need alerts for:
+
+**Cost anomalies:**
+- Daily AI spend exceeds threshold (unexpected spike from prompt injection or loop)
+- Token usage per user session exceeds normal range
+
+**Quality anomalies:**
+- Evaluation pass rate drops below threshold
+- Parse failure rate increases (model producing unexpected formats)
+- Error rate by tool exceeds baseline
+
+**Latency anomalies:**
+- P95 latency exceeds threshold
+- Latency distribution shifts (model provider changed behavior)
+
+**Feedback anomalies:**
+- User correction rate increases
+- Thumbs-down rate on specific features spikes
+
+Each alert needs an owner and a runbook. When the alert fires, someone should know what to do.
+
+## Building the Stack
+
+The components needed for AI observability are:
+
+1. **Trace instrumentation** in your LLM calling code — capture every call with context
+2. **Metrics aggregation** — compute cost, latency, error rates continuously
+3. **Eval pipeline** — run evaluation on sampled production outputs
+4. **Feedback capture** — collect explicit user corrections at the point of action
+5. **Dashboard** — visualize cost, quality, latency, and feedback signals
+6. **Alerting** — notify on anomalies with runbooks attached
+
+None of this is novel infrastructure. It is standard observability practices adapted for the specific failure modes of AI systems.
+
+The investment pays off in debuggability. When a user reports a wrong answer, you can reconstruct exactly what happened: what was retrieved, what prompt was used, what model generated the answer, and what similar cases look like. Without this, you are guessing.

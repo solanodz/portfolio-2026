@@ -1,0 +1,192 @@
+---
+title: "Building Reliable MCP Servers in Production"
+publishedAt: "2026-06-10"
+summary: "A practical guide to designing MCP servers that behave predictably under load — schema validation, error handling, observability, and the tool shapes that actually hold up in production."
+keywords:
+  - MCP
+  - AI
+  - Tool calling
+  - Production
+  - Schema
+draft: true
+---
+
+Model Context Protocol servers succeed or fail at the same place: the contract between the client and the tool. When that contract is loose, everything downstream breaks — the model makes wrong calls, the client sends garbage arguments, and the server throws vague errors that nobody can debug.
+
+This is a guide to getting the contract right, keeping it right, and knowing when it has drifted.
+
+## The Schema Is the API
+
+Most MCP introductions show a tool definition and move on. That undersells what a schema actually does. In production, the input schema is the only thing standing between a well-behaved agent and a cascade of invalid calls.
+
+A tool schema should be boring. Narrow types, explicit required fields, and descriptions that say what the field actually contains — not just the field name repeated.
+
+```json
+{
+  "name": "search_products",
+  "description": "Search the product catalog by text query and optional filters.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query, 1-200 characters. Avoid special operators.",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "category": {
+        "type": "string",
+        "description": "Optional product category slug. Omit to search all categories.",
+        "pattern": "^[a-z0-9-]+$"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Maximum results to return.",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 10
+      }
+    },
+    "required": ["query"]
+  }
+}
+```
+
+Notice: no mention of the database, no mention of the vector store, no mention of the indexing strategy. The schema describes the operation in domain terms.
+
+## Validation at the Boundary
+
+The schema is not enough by itself. You need validation that runs before any handler executes.
+
+The reason is straightforward: models can and will send arguments that are technically valid JSON but semantically wrong. A string that is the wrong format, a number that is in range but represents a deleted resource, an ID that exists but belongs to a different tenant. Schema validation catches the first layer. Business logic validation catches the rest.
+
+<Mermaid chart={`
+flowchart TD
+    A[Client sends JSON arguments] --> B[Schema validation]
+    B -->|pass| C[Business validation]
+    C -->|pass| D[Handler executes]
+    C -->|fail| E[Return structured error]
+    B -->|fail| E
+    D -->|success| F[Structured result]
+    D -->|error| E
+`} />
+
+Keep the error shape consistent. Every failure should return the same structure — a code, a message, and optionally a field path.
+
+```json
+{
+  "error": {
+    "code": "INVALID_CATEGORY",
+    "message": "Category ' footwear ' contains invalid characters or whitespace.",
+    "field": "category"
+  }
+}
+```
+
+This predictability matters more than anything else. If the client cannot rely on the error shape, it cannot route failures correctly.
+
+## Tool Shapes That Hold Up
+
+The hardest part of MCP design is knowing what to expose. Most people err in one of two directions: too coarse or too fine.
+
+**Too coarse:** `update_record(id, data)` — the model gets a raw JSON blob and must construct it correctly from context. This is error-prone and the model usually gets it wrong in subtle ways.
+
+**Too fine:** `set_product_name(product_id, name)`, `set_product_price(product_id, price)`, `set_product_description(product_id, description)` — each field gets its own tool. The model makes a dozen calls where one would do, and the ordering matters.
+
+The productive middle ground is a tool that does one thing with a complete input shape.
+
+```ts
+server.tool(
+  "update_product",
+  {
+    productId: z.string().uuid(),
+    changes: z.object({
+      name: z.string().min(1).max(200).optional(),
+      price: z.number().positive().optional(),
+      category: z.string().regex(/^[a-z0-9-]+$/).optional(),
+    }).refine(obj => Object.keys(obj).length > 0, {
+      message: "At least one field must be provided.",
+    }),
+  },
+  async ({ productId, changes }) => {
+    const updated = await db.products.update(productId, changes);
+    return {
+      content: [{ type: "text", text: JSON.stringify(updated) }],
+    };
+  }
+);
+```
+
+The `refine` on the changes object ensures the model cannot call the tool with an empty update. These constraints are not paperwork — they are the difference between a server that fails loudly and one that silently corrupts state.
+
+## Observability Without Noise
+
+Production MCP servers need three signals: tool call volume, error rate by tool, and latency distribution.
+
+The trap is instrumenting everything and getting drowning logging. Instead, emit structured events that aggregate cleanly.
+
+```python
+@dataclass
+class ToolCallEvent:
+    tool_name: str
+    duration_ms: float
+    status: Literal["success", "validation_error", "handler_error", "timeout"]
+    error_code: Optional[str] = None
+    arguments_size_bytes: int = 0
+    result_size_bytes: int = 0
+
+async def emit_event(event: ToolCallEvent):
+    structured = {
+        "event": "mcp_tool_call",
+        "tool": event.tool_name,
+        "duration_ms": event.duration_ms,
+        "status": event.status,
+        **({"error_code": event.error_code} if event.error_code else {}),
+    }
+    metrics_client.emit("mcp", structured)
+```
+
+With this in place, you can build dashboards that show which tools fail most, which are slow, and whether error rates are stable or climbing. Without it, you are guessing.
+
+## The Deployment Checklist
+
+Before shipping an MCP server to production:
+
+- Every tool schema has explicit `description` fields on all properties
+- All required fields are actually required; optional fields have defaults
+- Input validation rejects semantically invalid data, not just type errors
+- Error responses have a consistent shape across all tools
+- Each tool logs a structured event on call with duration and status
+- Tool names use domain language, not internal implementation names
+- Destructive actions require confirmation fields or are split into intent + execution steps
+- The server handles malformed arguments gracefully without crashing
+
+The last point deserves emphasis. A production MCP server will receive input it did not expect. The question is only whether it degrades gracefully or brings down the session. Plan for the unexpected input.
+
+## When to Split a Server
+
+A single MCP server should not expose every capability of your system. The discovery surface grows with the number of tools, and the model's ability to pick the right tool degrades when there are dozens of options.
+
+Split by domain. A server for product operations, a server for user management, a server for analytics queries. Each has a focused set of tools that the model can reason about.
+
+<Mermaid chart={`
+flowchart LR
+    A[AI client] --> B[Product server]
+    A --> C[User server]
+    A --> D[Analytics server]
+    B --> E[Product DB]
+    C --> F[Auth service]
+    D --> G[Data warehouse]
+`} />
+
+The client is responsible for routing to the right server. This separation also means you can deploy, monitor, and iterate on each server independently.
+
+## What Nobody Tells You
+
+The MCP protocol is well-designed, but the operational reality catches most teams off guard. Schema drift is the most common failure mode: a handler changes behavior but the schema stays the same, so the client has an incorrect model of what will happen.
+
+Counter this with a test suite that calls every tool with valid and invalid inputs and asserts on the response shape. If the schema and the handler disagree, the tests will catch it.
+
+The second reality is that models improve at tool use over time — and the tools that worked at one model version may not be optimal at another. Treat tool design as iterative. The first version will always be wrong in some way. Ship it, observe it, and refine.
+
+Building reliable MCP servers is not a solved problem. It is a discipline that gets easier with the right constraints and the right observability. The protocol gives you the structure; the production habits make it hold up.

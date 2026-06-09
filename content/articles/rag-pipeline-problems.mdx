@@ -1,0 +1,154 @@
+---
+title: "RAG Is Not Enough: The Pipeline Problems Nobody Talks About"
+publishedAt: "2026-06-11"
+summary: "Embedding and retrieving is the easy part. The real failure modes in production RAG systems are chunking strategy, retrieval quality, re-ranking, and evaluation — and most teams discover them too late."
+keywords:
+  - RAG
+  - AI
+  - Embeddings
+  - Vector search
+  - NLP
+draft: true
+---
+
+The standard RAG tutorial shows you how to chunk text, embed it, store it in a vector database, and retrieve the top-k results to feed an LLM. That tutorial is not wrong. It is just incomplete in ways that matter for production.
+
+The gap between a demo RAG system and a RAG system that reliably answers questions is wide. Crossing it requires solving problems that are less discussed: how you chunk matters more than which embedding model you use, retrieval can return plausible but wrong documents, and evaluation is harder than the embedding-vs-llm problem itself.
+
+## Chunking Strategy Is the First Failure Point
+
+Most teams pick a fixed chunk size — 512 tokens, 1024 tokens — and move on. That is a reasonable starting point, but it is rarely the right answer for the full document corpus.
+
+The problem: chunk size determines recall and precision simultaneously. Large chunks capture more context and are harder to miss relevant information, but they dilute the relevant content with surrounding material that introduces noise. Small chunks are precise but risk losing cross-chunk context that the answer depends on.
+
+The correct approach is to analyze your documents and pick chunk sizes that match the natural structure.
+
+<Mermaid chart={`
+flowchart TD
+    A[Document corpus analysis] --> B{Document structure}
+    B -->|Short items| C[256-512 tokens]
+    B -->|Long form articles| D[512-1024 tokens]
+    B -->|Technical docs| E[Overlap 20-30%]
+    B -->|Multi-section reports| F[Hierarchical chunking]
+    C --> G[Chunking strategy selected]
+    D --> G
+    E --> G
+    F --> G
+    G --> H[Embedding + indexing]
+`} />
+
+For technical documentation, overlapping chunks help — a chunk that starts in the middle of one section and ends in the next preserves cross-section continuity. For FAQ-style content with independent Q&A pairs, smaller non-overlapping chunks are cleaner.
+
+The tooling: `langchain` and `llamaindex` have token-aware text splitters. Most vector databases (Qdrant, Pinecone, Weaviate) handle metadata filtering on the stored chunks. What they do not do is tell you which strategy to use for your specific corpus. That analysis is still manual.
+
+## Hybrid Search Is Not Optional
+
+Pure vector search has a fundamental limitation: it finds semantically similar text, not text that matches the query's intent.
+
+Consider a query like "how do I reset the admin password." A pure vector search against a knowledge base might return documents about password requirements, account security policies, or user management interfaces — all semantically related but not answering the question. A BM25 keyword search would match "reset" and "password" directly.
+
+The solution is hybrid search: combine dense vector retrieval with sparse keyword retrieval and merge the scores.
+
+```python
+async def hybrid_search(query: str, top_k: int = 10):
+    dense_results = await vector_db.search(
+        embedding_model.encode(query),
+        limit=top_k * 2
+    )
+    sparse_results = await keyword_index.search(
+        query,
+        limit=top_k * 2
+    )
+
+    fused = reciprocal_rank_fusion(
+        dense_results,
+        sparse_results,
+        k=60
+    )
+    return fused[:top_k]
+```
+
+The fusion function matters. Reciprocal Rank Fusion (RRF) is the simplest and most robust option. Weighted score combination is tempting but requires tuning the weights, which drifts as your corpus changes.
+
+## Re-ranking Changes Everything
+
+Even with hybrid search, the initial retrieval set is rarely perfectly ordered. The top results may be relevant but not the most relevant. Re-ranking applies a more expensive but more accurate model to the initial retrieval set and reorders it.
+
+The typical setup: retrieve 20-50 candidates with the fast vector search, then run a cross-encoder re-ranker over those candidates to produce the final top-k.
+
+```python
+async def rerank(query: str, candidates: list[Document], top_k: int = 5):
+    pairs = [(query, doc.text) for doc in candidates]
+    scores = await cross_encoder.predict(pairs)
+
+    ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
+    return [doc for doc, score in ranked[:top_k]]
+```
+
+The cross-encoder is slower and more expensive than the bi-encoder used for initial retrieval, but it runs over a small set (20-50 documents) rather than the full corpus. The latency impact is manageable; the quality improvement is significant.
+
+A practical note: do not re-rank documents that you know are definitely relevant based on metadata. If the user is asking about a specific product and you can filter by product ID from the query, apply that filter before retrieval rather than re-ranking irrelevant documents.
+
+## Evaluation Is the Hard Part
+
+Most RAG tutorials skip evaluation. The ones that include it measure retrieval precision on a synthetic benchmark and call it done. In production, you need to know whether your system actually answers questions correctly — and that requires evaluating the full pipeline, not just the retrieval stage.
+
+The architecture to evaluate:
+
+<Mermaid chart={`
+flowchart LR
+    A[Test question] --> B[RAG pipeline]
+    B --> C[Retrieved documents]
+    C --> D[LLM answer]
+    D --> E[Grader LLM]
+    C --> E
+    E --> F[Pass / Fail / Partial]
+`} />
+
+The grader LLM takes the test question, the retrieved documents, and the generated answer, and produces a structured assessment. This is not perfect, but it is more reliable than human scoring at scale.
+
+```python
+async def grade_answer(
+    question: str,
+    retrieved_docs: list[Document],
+    answer: str,
+) -> EvaluationResult:
+    context = "\n\n".join(doc.text for doc in retrieved_docs)
+    prompt = f"""
+    Question: {question}
+
+    Retrieved context:
+    {context}
+
+    Generated answer:
+    {answer}
+
+    Evaluate the answer:
+    - Does it correctly answer the question?
+    - Does it use information from the retrieved context?
+    - Is it concise or does it ramble?
+    - Any factual errors?
+
+    Return a JSON object with: {{"score": "pass|fail|partial", "reason": "...", "used_context": bool}}
+    """
+    result = await llm.complete(prompt, response_format=EvaluationResult)
+    return result
+```
+
+Track this score over time, broken down by topic, document type, and query complexity. When the average score drops, you know something changed — either the corpus, the retrieval, or the generation — and you need to investigate.
+
+## The Failure Modes to Monitor
+
+**Stale embeddings:** When your corpus updates, embeddings for changed documents become incorrect. If you change a policy document and do not re-embed it, queries about the policy will retrieve the old version. Build a re-indexing pipeline that triggers on document changes, not just on new documents.
+
+**Query drift:** Users ask questions in ways your retrieval was not designed for. Monitor the queries that return low-quality results — they are signal about gaps in your corpus or your chunking strategy.
+
+**Top-k tuning:** The right `k` depends on the question type. Factual questions with specific answers need small k (3-5). Broader analytical questions benefit from larger k (10-20). There is no universal setting; instrument retrieval to find the right boundary for your use case.
+
+**LLM distractors:** The retrieved documents are visible to the LLM. If they contain contradictory information, the model may produce inconsistent answers. This is not a retrieval failure — it is a corpus quality issue. Audit your documents for internal consistency.
+
+## The Pipeline View
+
+A production RAG system is not a vector store and an LLM. It is a pipeline with multiple stages, each with its own failure modes and tuning knobs. The teams that get it right are the ones that treat it as a system: chunking, embedding, retrieval, fusion, re-ranking, generation, and evaluation.
+
+The evaluation stage is the one most teams skip. Adding it is not complicated — a grader prompt and a structured result — but it changes everything. Without it, you are flying blind.

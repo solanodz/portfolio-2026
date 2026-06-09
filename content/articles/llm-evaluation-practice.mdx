@@ -1,0 +1,188 @@
+---
+title: "LLM Evaluation in Practice: Beyond MMLU"
+publishedAt: "2026-06-12"
+summary: "MMLU tells you nothing about whether your LLM-powered application works. This is a practical guide to evaluating LLM pipelines for production — harness-based benchmarks, LLM-as-judge, and the signals that actually matter."
+keywords:
+  - LLM
+  - Evaluation
+  - Benchmarks
+  - AI engineering
+  - Quality
+draft: true
+---
+
+MMLU covers 57 topics from law to medicine. It tells you whether a model can answer multiple-choice questions in those domains. It tells you nothing about whether that same model can answer customer support questions about your product, generate valid SQL from a schema it has never seen, or keep a consistent tone across a long document.
+
+Production LLM evaluation is a different problem. It requires evaluating a specific pipeline — retrieval, prompting, model selection, output parsing — against real inputs and real quality standards.
+
+## Why Standard Benchmarks Do Not Help
+
+Benchmarks like MMLU, GSM8K, and HumanEval measure general capability. They were designed to compare models, not to validate whether a model is right for your use case.
+
+The failure mode is straightforward: a model that scores well on MMLU can still produce wrong answers to your domain-specific questions, miss critical constraints in your prompts, or generate outputs in the wrong format for your downstream systems.
+
+The reason is that benchmarks test general knowledge, not the intersection of that knowledge with your specific task requirements. A model that knows what a relational database is does not automatically know how to write correct SQL for your schema with your data distribution.
+
+## The Two-Level Evaluation Framework
+
+Production LLM evaluation works at two levels: pipeline-level evaluation and component-level evaluation.
+
+**Pipeline-level evaluation** measures whether the end-to-end system produces correct outputs for a given input. You run a set of test cases through the full pipeline and grade the outputs.
+
+**Component-level evaluation** measures whether individual parts of the pipeline are working correctly. The retrieval stage returns relevant documents. The prompt produces well-formed requests. The output parser handles the model's output correctly.
+
+<Mermaid chart={`
+flowchart TD
+    A[Test cases] --> B[Full pipeline eval]
+    A --> C[Retrieval eval]
+    A --> D[Prompt eval]
+    A --> E[Output parser eval]
+    B --> F[End-to-end quality]
+    C --> G[Recall / Precision]
+    D --> H[Prompt injection resistance]
+    E --> I[Parse success rate]
+`} />
+
+You need both. Component-level failures hide in pipeline-level averages, and pipeline-level failures can look like component failures if you only test components.
+
+## Building a Test Set
+
+The quality of your evaluation is determined by the quality of your test cases. This is where most teams cut corners.
+
+A test case for an LLM pipeline should contain:
+- The input (query, context, configuration)
+- The expected output or output properties
+- Metadata about why the case is hard or what failure modes to expect
+
+For a customer support chatbot:
+
+```python
+@dataclass
+class TestCase:
+    input: str
+    expected_topics: list[str]
+    disallowed_topics: list[str]
+    requires_context: bool
+    difficulty: Literal["easy", "medium", "hard"]
+    known_failure_modes: list[str] = field(default_factory=list)
+
+test_cases = [
+    TestCase(
+        input="Can I cancel my subscription?",
+        expected_topics=["cancellation", "refund-policy"],
+        disallowed_topics=["billing-history", "plan-upgrade"],
+        requires_context=False,
+        difficulty="easy",
+        known_failure_modes=["model suggests calling instead of providing self-service link"]
+    ),
+    # ...
+]
+```
+
+Start with 50-100 cases that cover your core use cases. Add cases for the failure modes you discover in production. The test set grows with the system.
+
+## LLM-as-Judge: When and How
+
+Human evaluation is the gold standard but does not scale. LLM-as-judge uses a stronger model to evaluate the outputs of the system under test.
+
+The key constraint: the judge model must be stronger than the model being evaluated. Using GPT-4 to judge GPT-3.5 outputs works. Using GPT-3.5 to judge GPT-4 outputs introduces systematic bias in favor of the judge model's limitations.
+
+The judge prompt needs to be specific about what it is evaluating:
+
+```python
+async def judge_response(test_case: TestCase, response: str, context: str | None) -> Judgment:
+    prompt = f"""
+    You are evaluating a customer support assistant's response.
+
+    INPUT: {test_case.input}
+    RESPONSE: {response}
+    {"CONTEXT: " + context if context else ""}
+
+    Evaluate the response on:
+    1. Correctness: Does it correctly address the user's intent?
+    2. Completeness: Does it provide all necessary information?
+    3. Tone: Is it professional and helpful?
+    4. Format: Is it well-structured and easy to read?
+
+    Return a JSON object:
+    {{
+        "scores": {{"correctness": 1-5, "completeness": 1-5, "tone": 1-5, "format": 1-5}},
+        "pass": bool,
+        "reason": "one sentence explaining the rating",
+        "issues": ["specific issue 1", "specific issue 2"] or []
+    }}
+    """
+    result = await judge_llm.complete(prompt, response_format=Judgment)
+    return result
+```
+
+Do not aggregate scores into a single number. A response that scores high on tone but low on correctness is a different failure mode than one that scores low on everything. Track dimensions separately.
+
+## Evaluation Metrics That Actually Matter
+
+These are the metrics that correlate with production quality:
+
+**Pass rate:** What fraction of test cases meet the minimum quality bar? This is your top-level signal. Track it over time, broken down by use case and difficulty.
+
+**Latency:** P50 and P95 response time, measured at the pipeline level and per component. Latency degradation often indicates model provider changes or retrieval degradation.
+
+**Parse success rate:** If your pipeline parses structured output from the LLM, track the fraction of responses that parse successfully. A dropping parse rate means the model is producing unexpected formats.
+
+**Context utilization:** Does the retrieved context actually appear in the answer? A response that ignores the retrieved documents is either a retrieval failure or a prompt failure.
+
+**Disallowed content rate:** For regulated domains, track how often the model produces content in disallowed categories. This is harder to measure automatically but critical for compliance.
+
+## Regression Testing
+
+Every time you change the prompt, the model version, the retrieval strategy, or any other component, run the full evaluation suite. Track the diff.
+
+The diff is more informative than the absolute score. A one-point drop in the overall score might look small, but if it is concentrated in high-difficulty cases or specific topics, it matters.
+
+```python
+def compare_evals(baseline: EvalResults, current: EvalResults) -> DiffReport:
+    diff = {}
+    for topic in current.topic_scores:
+        baseline_score = baseline.topic_scores.get(topic, 0)
+        current_score = current.topic_scores[topic]
+        diff[topic] = current_score - baseline_score
+
+    return DiffReport(
+        overall_delta=current.overall_score - baseline.overall_score,
+        topic_deltas=diff,
+        regressions=[t for t, d in diff.items() if d < -0.5],
+        improvements=[t for t, d in diff.items() if d > 0.5],
+    )
+```
+
+Set a threshold below which changes are not acceptable. If a prompt update causes a regression on any topic, do not ship it unless the regression is understood and justified.
+
+## The Observability Loop
+
+Evaluation is not a one-time activity. Build a pipeline that runs evaluation continuously in production.
+
+<Mermaid chart={`
+flowchart LR
+    A[Production traffic] --> B[Sampling 1-5%]
+    B --> C[Evaluation pipeline]
+    C --> D[Judge LLM]
+    D --> E[Results logged]
+    E --> F[Dashboard]
+    F --> G[Alert on regression]
+`} />
+
+This is not testing in production — it is observing production. The sampled outputs are evaluated offline, and the results are aggregated into signals. When the pass rate drops or a specific failure mode starts appearing, you get an alert before it becomes a widespread problem.
+
+The alternative is finding out from users. Users are a bad evaluation pipeline.
+
+## What to Evaluate and When
+
+Not every component needs continuous evaluation. A practical split:
+
+- **Prompt changes:** Full pipeline eval, all test cases
+- **Model version upgrade:** Full pipeline eval + component-level eval
+- **Retrieval strategy change:** Retrieval eval + full pipeline eval
+- **Daily production observation:** 1-5% sampled eval, aggregated weekly
+
+Keep the full evaluation fast enough to run on every commit. If it takes 30 minutes, nobody will run it. If it takes 5 minutes, it will run in CI.
+
+The goal is to make regression visible by default, not by decision.
