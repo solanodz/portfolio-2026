@@ -19,7 +19,7 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
-const siteUrl = "https://solanodz.dev";
+const siteUrl = "https://solanodz.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
