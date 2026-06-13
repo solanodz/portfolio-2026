@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
@@ -9,11 +7,13 @@ import remarkGfm from "remark-gfm";
 import { ArticleIndex } from "@/app/components/article-index";
 import { mdxComponents } from "@/app/components/mdx-components";
 import { ReadingProgress } from "@/app/components/reading-progress";
+import { RelatedArticles } from "@/app/components/related-articles";
 import { SiteFooter } from "@/app/components/site-footer";
 import {
   formatArticleDate,
   getPublishedArticle,
   getPublishedArticles,
+  getRelatedPublishedArticles,
 } from "@/lib/articles";
 
 type ArticlePageProps = {
@@ -71,28 +71,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound();
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-6 py-16 text-[15px] leading-relaxed text-secondary sm:py-20">
-      <ReadingProgress />
-      <div className="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
-        <div className="hidden lg:block" />
-        <Link
-          href="/blog"
-          className="icon-hover inline-flex items-center gap-1.5 text-sm text-muted"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-          Blog
-        </Link>
+  const relatedArticles = await getRelatedPublishedArticles(slug);
 
+  return (
+    <main className="mx-auto max-w-[100rem] px-6 py-16 text-[15px] leading-relaxed text-secondary sm:px-10 sm:py-20 lg:px-12">
+      <ReadingProgress />
+      <div className="mt-8 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_18rem] lg:gap-x-14 xl:grid-cols-[16rem_minmax(0,1fr)_20rem] xl:gap-x-20 2xl:gap-x-24">
         <ArticleIndex headings={article.headings} />
 
         <div className="min-w-0">
-          <article className="mt-8">
+          <article>
             <header>
               <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[2rem] sm:leading-tight">
                 {article.metadata.title}
               </h1>
-              <p className="mt-4 max-w-3xl text-muted">
+              <p className="mt-4 max-w-4xl text-muted">
                 {article.metadata.summary}
               </p>
               <div className="mt-4 space-y-1 font-mono text-xs text-faint">
@@ -130,6 +123,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
           <SiteFooter />
         </div>
+
+        <RelatedArticles articles={relatedArticles} />
       </div>
     </main>
   );

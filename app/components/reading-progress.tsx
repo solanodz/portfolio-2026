@@ -31,7 +31,7 @@ export function ReadingProgress() {
   return (
     <div
       aria-hidden="true"
-      className="fixed top-0 left-0 z-50 h-1 w-full bg-line"
+      className="fixed top-0 left-0 z-[60] h-1 w-full bg-line"
     >
       <div
         className="h-full origin-left bg-emerald-400"

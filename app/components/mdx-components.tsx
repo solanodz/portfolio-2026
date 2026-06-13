@@ -10,12 +10,11 @@ function ArticleLink(props: ComponentPropsWithoutRef<"a">) {
   const href = props.href ?? "";
   const isInternal = href.startsWith("/");
 
+  const linkClassName = "article-link";
+
   if (isInternal) {
     return (
-      <Link
-        href={href}
-        className="text-text underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-text"
-      >
+      <Link href={href} className={linkClassName}>
         {props.children}
       </Link>
     );
@@ -24,10 +23,7 @@ function ArticleLink(props: ComponentPropsWithoutRef<"a">) {
   return (
     <a
       {...props}
-      className={cn(
-        "text-text underline decoration-line-strong underline-offset-4 transition-colors hover:decoration-text",
-        props.className,
-      )}
+      className={cn(linkClassName, props.className)}
       target="_blank"
       rel="noopener noreferrer"
     />

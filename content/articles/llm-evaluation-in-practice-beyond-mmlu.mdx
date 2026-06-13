@@ -1,0 +1,209 @@
+---
+title: "LLM Evaluation in Practice: Beyond MMLU"
+publishedAt: "2026-06-09"
+summary: "Academic benchmarks tell you whether a model is generally capable. Product evals tell you whether your AI application works for your users, data, tools, and failure cases."
+keywords:
+  - AI
+  - Evals
+  - LLMs
+  - Quality
+draft: false
+---
+
+Benchmarks like MMLU are useful for comparing general model capability. They are not enough to decide whether your AI application works.
+
+Your app has its own prompts, tools, retrieval pipeline, schemas, user language, business rules, and failure modes. A model can score well on public benchmarks and still fail your production workflow. That is why practical evaluation has to move from "which model is best?" to "does this system behave correctly for this task?"
+
+OpenAI's evaluation guidance frames evals as structured tests for accuracy, performance, and reliability. LangSmith makes a similar distinction between offline evaluations during development and online evaluations on production traces. The common idea is simple: define what good means, collect examples, run the system, and compare versions over time.
+
+## Evaluate The System, Not Just The Model
+
+An LLM feature is rarely just an LLM call.
+
+<Mermaid chart={`
+flowchart LR
+  Input[User input] --> Router[Routing]
+  Router --> Retrieval[Retrieval or tools]
+  Retrieval --> Prompt[Prompt assembly]
+  Prompt --> Model[Model call]
+  Model --> Parser[Parser or schema validation]
+  Parser --> Output[Product output]
+`} />
+
+If the output is wrong, the model might not be the cause. The retriever may have missed evidence, the prompt may have hidden an instruction, the parser may have accepted an invalid structure, or the tool may have returned stale data.
+
+Practical evals should test the whole path.
+
+## Start With A Clear Objective
+
+An eval needs a target. "Improve quality" is not enough.
+
+Better objectives:
+
+- Classify support tickets into the correct queue.
+- Answer analytics questions using only retrieved data.
+- Extract invoice fields into a strict JSON schema.
+- Decide whether a workflow needs human approval.
+- Generate a report summary that preserves key numbers.
+
+The objective determines the dataset, metrics, and grader.
+
+```json
+{
+  "objective": "Answer analytics questions using only approved query results.",
+  "successCriteria": [
+    "answer does not invent metrics",
+    "answer cites the relevant dimension",
+    "answer refuses when data is missing"
+  ]
+}
+```
+
+If you cannot write success criteria, you are not ready to evaluate.
+
+## Build A Small Dataset First
+
+Your first eval dataset should be small and sharp. It should include real examples, edge cases, and cases that previously failed.
+
+```json
+{
+  "input": "Which store had the biggest revenue drop last week?",
+  "context": {
+    "queryResult": [
+      { "store": "A", "revenue_delta": -0.12 },
+      { "store": "B", "revenue_delta": -0.31 }
+    ]
+  },
+  "expected": {
+    "store": "B",
+    "mustMention": ["biggest revenue drop", "-31%"],
+    "mustNotMention": ["profit", "customer churn"]
+  }
+}
+```
+
+A good dataset has multiple types of examples:
+
+| Example type | Why it matters |
+| --- | --- |
+| Typical cases | Measures normal product behavior |
+| Edge cases | Catches brittle prompts and parsers |
+| Adversarial cases | Tests safety and instruction hierarchy |
+| Historical failures | Prevents regressions |
+| Missing-data cases | Checks refusal behavior |
+
+You can add volume later. At the beginning, quality matters more than size.
+
+## Choose The Right Grader
+
+Different tasks need different graders.
+
+| Task | Good grader |
+| --- | --- |
+| Classification | Exact match |
+| Structured extraction | JSON schema plus field checks |
+| Retrieval | Recall@k, MRR, NDCG |
+| Summarization | Rubric or LLM-as-judge |
+| Safety | Policy checks plus adversarial examples |
+| Tool use | Expected tool call and arguments |
+
+OpenAI's Evals API uses a configuration with data schemas and testing criteria. LangSmith lets you run offline evals against datasets and online evals against production traces. Both approaches work best when the grader matches the task.
+
+Do not use an LLM judge for everything. If a string or schema check can prove correctness, use it.
+
+## Test Prompt And Model Changes Like Code
+
+Prompts change behavior. Model upgrades change behavior. Retrieval settings change behavior. Treat those changes like code changes.
+
+<Mermaid chart={`
+flowchart TD
+  Change[Prompt, model, retrieval, or parser change] --> Run[Run eval dataset]
+  Run --> Compare[Compare against baseline]
+  Compare --> Gate{Regression?}
+  Gate -->|yes| Block[Block release]
+  Gate -->|no| Ship[Ship change]
+  Block --> Fix[Fix prompt or pipeline]
+  Fix --> Run
+`} />
+
+A simple eval report should answer:
+
+- Did quality improve?
+- Which examples regressed?
+- Which failure category increased?
+- Did latency or cost change?
+- Is the change worth shipping?
+
+Without this loop, teams ship prompt changes by intuition.
+
+## Evaluate Tool Calling Separately
+
+Tool-calling systems need their own evals. The final answer can look correct even if the model used the wrong tool, skipped a permission check, or passed malformed arguments.
+
+```json
+{
+  "input": "Create a refund note for order 123, but do not issue the refund yet.",
+  "expectedToolCalls": [
+    {
+      "name": "create_internal_note",
+      "arguments": {
+        "orderId": "123"
+      }
+    }
+  ],
+  "forbiddenToolCalls": ["issue_refund"]
+}
+```
+
+This kind of eval catches the mistakes that generic benchmarks never see.
+
+## Add Online Evaluation After Launch
+
+Offline evals catch known cases before release. Online evals catch live behavior after release.
+
+LangSmith describes online evaluations as checks that run on production traces, often without reference outputs. These can monitor format validity, safety, refusal quality, citation presence, latency, or user feedback.
+
+```ts
+type OnlineEvalResult = {
+  traceId: string;
+  checks: {
+    validJson: boolean;
+    citedSource: boolean;
+    containsPII: boolean;
+    userThumbsUp?: boolean;
+  };
+};
+```
+
+Online evals should feed the offline dataset. When production fails, add that trace to your regression suite.
+
+## What To Track Over Time
+
+A useful eval dashboard tracks more than one score:
+
+- Accuracy or task success.
+- Refusal correctness.
+- Schema validity.
+- Retrieval recall.
+- Tool-call correctness.
+- Latency.
+- Cost.
+- User feedback.
+- Regression count.
+
+Quality is multidimensional. A cheaper model that is 2% worse may be fine for drafts. It may be unacceptable for financial analytics.
+
+## The Takeaway
+
+MMLU can help you pick candidate models. It cannot tell you if your product works.
+
+Real evaluation starts with your users, your data, your workflows, and your failure cases. Define success, build a dataset, choose task-specific graders, run comparisons on every meaningful change, and turn production failures into future tests.
+
+The goal is not a perfect score. The goal is knowing when the system got better, when it got worse, and why.
+
+Further reading:
+
+- [OpenAI: Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices)
+- [OpenAI: Working with Evals](https://developers.openai.com/api/docs/guides/evals)
+- [LangSmith Evaluation](https://docs.langchain.com/langsmith/evaluation)
+- [LangSmith Evaluation Concepts](https://docs.langchain.com/langsmith/evaluation-concepts)

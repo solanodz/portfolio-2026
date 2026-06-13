@@ -1,0 +1,229 @@
+---
+title: "Building Reliable MCP Servers in Production"
+publishedAt: "2026-06-09"
+summary: "MCP servers are easy to demo and surprisingly easy to break in production. Reliability comes from narrow tools, schema validation, explicit permissions, timeouts, idempotency, and observability."
+keywords:
+  - AI
+  - MCP
+  - Production
+  - Tooling
+draft: false
+---
+
+MCP servers are a clean way to connect AI clients to tools, resources, and workflows. The basic demo is simple: define a tool, expose a JSON schema, call an API, return a result.
+
+Production is different. In production, the model may call the wrong tool, pass partial arguments, retry a request, hit rate limits, receive stale data, or loop through the same operation multiple times. A reliable MCP server needs to assume that the model is helpful but not authoritative.
+
+The official MCP specification already points in this direction. Tools are schema-defined interfaces. Servers must validate inputs, enforce access controls, sanitize outputs, rate limit invocations, and clients should implement timeouts. Those are not details. They are the foundation.
+
+## Start With The Contract
+
+An MCP server should expose a small surface area. Each tool should represent one operation with a clear owner, clear arguments, and a predictable output shape.
+
+Bad tool design:
+
+```json
+{
+  "name": "manage_customer",
+  "description": "Do customer operations."
+}
+```
+
+Better tool design:
+
+```json
+{
+  "name": "create_support_note",
+  "description": "Append an internal note to an existing support ticket.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "ticketId": {
+        "type": "string",
+        "description": "The support ticket identifier."
+      },
+      "note": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "required": ["ticketId", "note"],
+    "additionalProperties": false
+  }
+}
+```
+
+The second version is boring, and that is the point. It gives the model less room to improvise and gives the server more room to reject bad input.
+
+## Reliability Is A Pipeline
+
+A tool call should pass through several layers before it touches an external system.
+
+<Mermaid chart={`
+flowchart LR
+  Call[Tool call] --> Schema[Schema validation]
+  Schema --> Auth[Authorization]
+  Auth --> Policy[Business policy]
+  Policy --> Idempotency[Idempotency check]
+  Idempotency --> Execute[External operation]
+  Execute --> Sanitize[Sanitize output]
+  Sanitize --> Trace[Trace and audit]
+  Trace --> Result[Structured result]
+`} />
+
+If one of these layers is missing, the model ends up carrying responsibility that belongs in software.
+
+## Validate Twice
+
+Schema validation catches malformed input. Domain validation catches impossible input.
+
+```ts
+const inputSchema = z.object({
+  ticketId: z.string().min(1),
+  note: z.string().min(1).max(2000),
+});
+
+async function createSupportNote(rawInput: unknown, user: User) {
+  const input = inputSchema.parse(rawInput);
+
+  const ticket = await tickets.findById(input.ticketId);
+
+  if (!ticket) {
+    return toolError("Ticket not found.");
+  }
+
+  if (!user.canAccess(ticket.accountId)) {
+    return toolError("User cannot access this ticket.");
+  }
+
+  return tickets.appendNote(ticket.id, input.note);
+}
+```
+
+The schema proves the input has the right shape. It does not prove the user is allowed to use that ticket, that the ticket exists, or that the requested operation makes sense.
+
+## Make Dangerous Tools Explicit
+
+MCP tools can query databases, call APIs, send messages, create records, or modify files. That power should be visible in the tool name and description.
+
+| Tool type | Example | Production requirement |
+| --- | --- | --- |
+| Read-only | `search_orders` | Permission checks, pagination, output limits |
+| Low-risk write | `create_internal_note` | Idempotency, audit log |
+| High-risk write | `issue_refund` | Human approval, policy checks |
+| External side effect | `send_email` | Preview, approval, dedupe key |
+
+If a tool can mutate state, do not hide that behind a vague name.
+
+## Use Idempotency Keys
+
+Models and clients retry. Networks fail. Users refresh. If the tool call creates money movement, sends a message, or writes to a system of record, retries can create duplicate side effects.
+
+```ts
+type CreateIssueInput = {
+  title: string;
+  body: string;
+  idempotencyKey: string;
+};
+
+async function createIssue(input: CreateIssueInput) {
+  const existing = await idempotency.find(input.idempotencyKey);
+
+  if (existing) {
+    return existing.result;
+  }
+
+  const issue = await github.createIssue({
+    title: input.title,
+    body: input.body,
+  });
+
+  await idempotency.save(input.idempotencyKey, issue);
+  return issue;
+}
+```
+
+You can generate the idempotency key on the client, derive it from a workflow run, or ask the model to pass a stable key from context. The important part is that duplicate calls do not create duplicate real-world actions.
+
+## Return Less Than You Receive
+
+External APIs often return too much data. A reliable MCP server should return exactly what the model needs next.
+
+```json
+{
+  "issueId": "123",
+  "url": "https://github.com/org/repo/issues/123",
+  "status": "created"
+}
+```
+
+Do not return full user records, raw access tokens, internal billing metadata, or stack traces. Tool output becomes model context. Treat it as data leaving a trust boundary.
+
+## Timeouts And Rate Limits Are Product Behavior
+
+The model should not wait forever. Tool calls need explicit timeouts and clear failure messages.
+
+```ts
+const controller = new AbortController();
+const timeout = setTimeout(() => controller.abort(), 8000);
+
+try {
+  return await externalApi.call(input, { signal: controller.signal });
+} catch (error) {
+  return toolError("The upstream service timed out. Try again later.");
+} finally {
+  clearTimeout(timeout);
+}
+```
+
+A timeout should not look like a mystery to the model. Return a structured error the client can reason about.
+
+## Observe The Tool, Not Just The Model
+
+When a production MCP server fails, the model response is usually the least useful artifact. You need the tool name, arguments after validation, user identity, authorization decision, upstream latency, retry count, and sanitized result.
+
+<Mermaid chart={`
+sequenceDiagram
+  participant Client
+  participant Server as MCP Server
+  participant Policy
+  participant API
+  participant Trace
+
+  Client->>Server: call tool
+  Server->>Trace: start span
+  Server->>Policy: authorize input
+  Policy-->>Server: allowed
+  Server->>API: execute operation
+  API-->>Server: result
+  Server->>Trace: record latency and outcome
+  Server-->>Client: structured response
+`} />
+
+The trace should answer: what happened, who asked for it, which policy allowed it, which system was called, and what the final result was.
+
+## A Practical Checklist
+
+- Keep each tool narrow.
+- Use JSON Schema and domain validation.
+- Reject unknown fields with `additionalProperties: false`.
+- Separate read-only tools from mutating tools.
+- Require approval for high-risk side effects.
+- Add timeouts to every upstream call.
+- Use idempotency for writes.
+- Rate limit per user, tool, and tenant.
+- Sanitize outputs before returning them to the model.
+- Trace every tool call with enough metadata to debug it later.
+
+## The Takeaway
+
+A production MCP server is not just an adapter. It is a policy boundary between a probabilistic planner and deterministic systems. The more important the external system is, the more the server has to enforce contracts, permissions, and operational discipline.
+
+The best MCP tools feel small. They are easy for the model to discover, hard for the model to misuse, and boring for engineers to debug.
+
+Further reading:
+
+- [Model Context Protocol: Server concepts](https://modelcontextprotocol.io/docs/learn/server-concepts)
+- [MCP Specification: Tools](https://modelcontextprotocol.io/specification/draft/server/tools)
+- [MCP Specification: Resources](https://modelcontextprotocol.io/specification/2025-06-18/server/resources)

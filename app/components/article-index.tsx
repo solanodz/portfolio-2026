@@ -64,17 +64,24 @@ export function ArticleIndex({ headings }: { headings: ArticleHeading[] }) {
     <aside className="hidden lg:block">
       <nav
         aria-label="Article index"
-        className="sticky top-16 max-h-[calc(100vh-4rem)] overflow-y-auto border-l border-line pl-4"
+        className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto pr-8"
       >
-        <p className="mb-3 font-mono text-xs uppercase tracking-[0.16em] text-faint">
+        <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
           Index
         </p>
-        <ol className="space-y-2 text-sm">
+        <ol className="space-y-1 border-l border-line">
           {headings.map((heading) => {
             const isActive = heading.id === activeId;
 
             return (
-              <li key={heading.id}>
+              <li
+                key={heading.id}
+                className={[
+                  "-ml-px border-l-2",
+                  heading.depth === 3 ? "pl-8" : "pl-5",
+                  isActive ? "border-emerald-400" : "border-transparent",
+                ].join(" ")}
+              >
                 <a
                   href={`#${heading.id}`}
                   onClick={(event) => {
@@ -82,8 +89,7 @@ export function ArticleIndex({ headings }: { headings: ArticleHeading[] }) {
                     scrollToHeading(heading);
                   }}
                   className={[
-                    "block transition-colors",
-                    heading.depth === 3 ? "pl-3" : "",
+                    "block py-1.5 text-[13px] leading-snug transition-colors",
                     isActive
                       ? "font-semibold text-text"
                       : "font-normal text-muted hover:text-text",

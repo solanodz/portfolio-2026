@@ -1,0 +1,205 @@
+---
+title: "Observability for AI Systems: Tracing, Evals, and Feedback Loops"
+publishedAt: "2026-06-09"
+summary: "AI observability is not just logs around a model call. Reliable systems need traces across prompts, tools, retrieval, evals, costs, feedback, and production regressions."
+keywords:
+  - AI
+  - Observability
+  - Tracing
+  - Evals
+draft: false
+---
+
+Traditional observability answers questions like: is the service up, how slow is the endpoint, where did the exception happen?
+
+AI observability has to answer more questions: which prompt was used, what context was retrieved, which tool was called, how many tokens were spent, did the output follow the schema, did the answer use the evidence, and did users trust it?
+
+Logs around the model call are not enough. You need traces, evals, and feedback loops working together.
+
+## AI Requests Are Pipelines
+
+An AI request usually crosses several systems before returning a response.
+
+<Mermaid chart={`
+flowchart LR
+  User[User request] --> API[FastAPI or app route]
+  API --> Retriever[Retriever]
+  Retriever --> VectorDB[Vector database]
+  API --> Tool[Tool call]
+  API --> Model[LLM provider]
+  Model --> Parser[Parser and validation]
+  Parser --> Response[User response]
+  Response --> Feedback[Feedback]
+  Feedback --> Dataset[Eval dataset]
+`} />
+
+If you only trace the model call, you miss the pipeline.
+
+## Trace The Full Run Tree
+
+A trace should show the request as a tree of spans.
+
+```text
+assistant.request
+  retrieve_context
+    qdrant.query
+  build_prompt
+  openai.responses.create
+  validate_output
+  persist_answer
+```
+
+This structure lets you answer practical questions:
+
+- Did retrieval return the right context?
+- Did the model receive too many tokens?
+- Did the tool call fail or did the model ignore the result?
+- Did validation reject the first output?
+- Which step caused latency?
+
+LangSmith documents this style of tracing for LLM apps, where the outer function captures the request and nested spans capture retrieval, tools, and model calls. OpenTelemetry's GenAI semantic conventions add a vendor-neutral vocabulary for model operations, agent spans, metrics, events, and exceptions.
+
+## Capture The Right Metadata
+
+Useful metadata is structured. It should support debugging, dashboards, and evals.
+
+| Metadata | Why it matters |
+| --- | --- |
+| `trace_id` | Connects logs, spans, feedback, and evals |
+| `user_id` or tenant | Debugs scoped failures |
+| `prompt_version` | Finds prompt regressions |
+| `model` | Compares model behavior and cost |
+| `retriever_config` | Explains retrieval changes |
+| `tool_name` | Groups tool failures |
+| `token_usage` | Tracks cost and context pressure |
+| `latency_ms` | Finds slow steps |
+| `schema_valid` | Measures output reliability |
+| `eval_scores` | Tracks quality over time |
+
+Do not store raw sensitive content by default. Capture enough to debug safely, and gate full prompt/response logging behind privacy controls.
+
+## Metrics Need Quality Signals
+
+Latency and error rate are necessary but incomplete.
+
+AI systems need additional metrics:
+
+- Token usage per request.
+- Cost per successful task.
+- Retrieval recall on eval sets.
+- Reranker hit rate.
+- Tool-call success rate.
+- Output schema validity.
+- Refusal correctness.
+- Human escalation rate.
+- User feedback score.
+- Regression count per release.
+
+OpenTelemetry can standardize low-level telemetry like spans, provider names, model names, token usage, and events. Evaluation platforms add the quality layer: correctness, faithfulness, safety, and task success.
+
+## Evals Turn Traces Into Tests
+
+Production traces are not just debugging artifacts. They are future tests.
+
+<Mermaid chart={`
+flowchart TD
+  Trace[Production trace] --> Review[Review failure]
+  Review --> Dataset[Add to eval dataset]
+  Dataset --> Experiment[Run offline eval]
+  Experiment --> Fix[Prompt, model, retrieval, or tool fix]
+  Fix --> Deploy[Deploy]
+  Deploy --> Monitor[Online evals and feedback]
+  Monitor --> Trace
+`} />
+
+When a user reports a bad answer, save the trace, label the failure, and add it to the regression dataset. The next time someone changes the prompt or model, that failure should be tested automatically.
+
+## Online And Offline Evals Work Together
+
+Offline evals run before release against curated datasets. Online evals run after release on production traffic.
+
+| Eval type | When it runs | Best for |
+| --- | --- | --- |
+| Offline | Before deploy | Regression testing, model comparison, prompt iteration |
+| Online | During production | Live quality monitoring, safety checks, anomaly detection |
+
+LangSmith's evaluation docs describe this lifecycle directly: offline evaluation validates changes before deployment, while online evaluation monitors live interactions without always having reference outputs.
+
+You need both. Offline evals catch known failures. Online evals discover new failures.
+
+## Feedback Should Be Actionable
+
+A thumbs-down without context is weak signal. Ask for lightweight structured feedback.
+
+```json
+{
+  "traceId": "trace_123",
+  "rating": "negative",
+  "reason": "missing_source",
+  "comment": "The answer did not cite the policy document."
+}
+```
+
+Useful feedback categories:
+
+- Wrong answer.
+- Missing source.
+- Stale data.
+- Too vague.
+- Tool failed.
+- Unsafe action.
+- Bad formatting.
+- Should have refused.
+
+This turns feedback into labels you can aggregate.
+
+## A Minimal Production Setup
+
+You do not need a huge observability platform on day one. You need the right loop.
+
+Start with:
+
+1. A trace ID for every request.
+2. Spans for retrieval, tool calls, model calls, validation, and persistence.
+3. Prompt version and model name on every trace.
+4. Token usage and latency metrics.
+5. Schema validation metrics.
+6. User feedback tied to trace IDs.
+7. A small eval dataset seeded from real failures.
+8. A release gate that runs evals before shipping risky changes.
+
+That setup already gives you a serious advantage over "we read the logs and changed the prompt."
+
+## FastAPI Example
+
+In a production API, keep tracing close to the request boundary.
+
+```py
+@app.post("/assistant")
+async def assistant(request: AssistantRequest):
+    with tracer.start_as_current_span("assistant.request") as span:
+        span.set_attribute("ai.prompt_version", PROMPT_VERSION)
+        span.set_attribute("ai.tenant_id", request.tenant_id)
+
+        context = await retrieve_context(request.question)
+        answer = await call_model(request.question, context)
+        validated = validate_answer(answer)
+
+        span.set_attribute("ai.schema_valid", validated.ok)
+        return validated.response
+```
+
+The exact SDK matters less than the discipline: every important step becomes visible.
+
+## The Takeaway
+
+AI observability is the practice of connecting behavior to evidence. Traces explain what happened. Metrics show whether it is getting better or worse. Evals define quality. Feedback finds the cases your tests missed.
+
+If those pieces are disconnected, the team debates anecdotes. If they are connected, production failures become regression tests and quality improves with every release.
+
+Further reading:
+
+- [OpenTelemetry: Semantic conventions for generative AI systems](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+- [OpenTelemetry: Generative AI blog](https://opentelemetry.io/blog/2024/otel-generative-ai/)
+- [LangSmith: Observability Quickstart](https://docs.langchain.com/langsmith/observability-quickstart)
+- [LangSmith: Evaluation](https://docs.langchain.com/langsmith/evaluation)

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import { SiteFooter } from "../components/site-footer";
 import { formatArticleDate, getPublishedArticles } from "@/lib/articles";
@@ -17,15 +17,7 @@ export default async function BlogPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-16 text-[15px] leading-relaxed text-secondary sm:py-20">
       <div className="flex-1">
-        <Link
-          href="/"
-          className="icon-hover inline-flex items-center gap-1.5 text-sm text-muted"
-        >
-          <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-          Back
-        </Link>
-
-        <header className="mt-8">
+        <header>
           <h1 className="text-xl font-semibold tracking-tight text-text">Blog</h1>
           <p className="mt-2 max-w-xl text-muted">
             Notes on AI engineering, product systems, and the work behind taking

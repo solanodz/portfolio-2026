@@ -26,6 +26,12 @@ export type Article = {
   headings: ArticleHeading[];
 };
 
+export type RelatedArticle = {
+  slug: string;
+  metadata: ArticleMetadata;
+  sharedKeywords: string[];
+};
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -165,6 +171,105 @@ export async function getPublishedArticle(slug: string) {
   const articles = await getPublishedArticles();
 
   return articles.find((article) => article.slug === slug) ?? null;
+}
+
+function normalizeKeyword(keyword: string) {
+  return keyword.trim().toLowerCase();
+}
+
+function getKeywordDocumentFrequency(
+  articles: Pick<Article, "metadata">[],
+) {
+  const frequencies = new Map<string, number>();
+
+  for (const article of articles) {
+    const uniqueKeywords = new Set(
+      article.metadata.keywords.map(normalizeKeyword),
+    );
+
+    for (const keyword of uniqueKeywords) {
+      frequencies.set(keyword, (frequencies.get(keyword) ?? 0) + 1);
+    }
+  }
+
+  return frequencies;
+}
+
+function getSharedKeywords(left: string[], right: string[]) {
+  const leftKeywords = new Set(left.map(normalizeKeyword));
+
+  return right.filter((keyword, index, keywords) => {
+    const normalized = normalizeKeyword(keyword);
+
+    return (
+      leftKeywords.has(normalized) &&
+      keywords.findIndex((item) => normalizeKeyword(item) === normalized) === index
+    );
+  });
+}
+
+export function getRelatedArticles(
+  currentSlug: string,
+  articles: Pick<Article, "slug" | "metadata">[],
+  limit = 3,
+): RelatedArticle[] {
+  const current = articles.find((article) => article.slug === currentSlug);
+
+  if (!current) {
+    return [];
+  }
+
+  const keywordDocumentFrequency = getKeywordDocumentFrequency(articles);
+  const totalArticles = articles.length;
+
+  const ranked = articles
+    .filter((article) => article.slug !== currentSlug)
+    .map((article) => {
+      const sharedKeywords = getSharedKeywords(
+        current.metadata.keywords,
+        article.metadata.keywords,
+      );
+
+      const score = sharedKeywords.reduce((total, keyword) => {
+        const documentFrequency =
+          keywordDocumentFrequency.get(normalizeKeyword(keyword)) ?? 1;
+
+        return total + Math.log((totalArticles + 1) / documentFrequency);
+      }, 0);
+
+      return { article, sharedKeywords, score };
+    })
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return right.article.metadata.publishedAt.localeCompare(
+        left.article.metadata.publishedAt,
+      );
+    });
+
+  const related = ranked.filter(({ score }) => score > 0).slice(0, limit);
+
+  if (related.length > 0) {
+    return related.map(({ article, sharedKeywords }) => ({
+      slug: article.slug,
+      metadata: article.metadata,
+      sharedKeywords,
+    }));
+  }
+
+  return ranked.slice(0, limit).map(({ article }) => ({
+    slug: article.slug,
+    metadata: article.metadata,
+    sharedKeywords: [],
+  }));
+}
+
+export async function getRelatedPublishedArticles(slug: string, limit = 3) {
+  const articles = await getPublishedArticles();
+
+  return getRelatedArticles(slug, articles, limit);
 }
 
 export function formatArticleDate(date: string) {

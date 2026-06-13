@@ -1,0 +1,101 @@
+---
+title: "How AI Tools Actually Work"
+publishedAt: "2026-06-13"
+summary: "Models do not read files or run commands on their own. They ask for tools, and a harness runs them."
+keywords:
+  - AI
+  - Tools
+  - Agents
+  - Tooling
+draft: false
+---
+
+A common mistake is thinking that GPT, Claude, or any other model can read your files, edit code, or call an API by itself.
+
+It cannot.
+
+A model only receives input and generates text. That is all it does. It has no access to your filesystem, your terminal, or the internet unless something else gives it that access.
+
+So how do coding agents seem to open repos and fix bugs? Through **tools**.
+
+## The Loop
+
+When you ask an agent to fix a login bug, something like this happens:
+
+1. You send the request.
+2. A **harness** (Cursor, Claude Code, or similar) forwards it to the model.
+3. The model replies with a tool request: "I need to read `login.js`."
+4. The harness reads the file and sends the content back to the model.
+5. The model reads it, finds the bug, and requests another tool: "Edit line 42."
+6. The harness applies the edit.
+7. The model tells you it is done.
+
+The model never touched the file. It only asked for tools. The harness did the actual work.
+
+<Mermaid chart={`
+sequenceDiagram
+  actor You
+  participant Harness
+  participant Model
+
+  You->>Harness: Fix the login bug
+  Harness->>Model: Your request
+  Model->>Harness: Tool: read login.js
+  Harness->>Model: File contents
+  Model->>Harness: Tool: edit line 42
+  Harness->>Model: Edit applied
+  Model->>Harness: Done
+  Harness->>You: Bug fixed
+`} />
+
+## Three Pieces
+
+**Model** — the brain. It thinks and decides what to do next.
+
+**Tools** — the hands. Named actions like read a file, edit a line, or call an API.
+
+**Harness** — the layer in the middle. It runs the tools and returns the results to the model.
+
+Without tools, the model can only talk. Without a harness, tool requests go nowhere.
+
+## What A Tool Looks Like
+
+A tool is not free-form text. It has a name and typed arguments. The model outputs something structured, and the harness checks it before running anything.
+
+```json
+{
+  "name": "read_file",
+  "arguments": { "path": "src/auth/login.js" }
+}
+```
+
+If the path is invalid or the tool does not exist, the harness rejects the call. The model never gets direct access — every action goes through that gate.
+
+That is also where safety lives. The harness decides which tools exist, which folders are readable, and whether an edit needs your approval. The prompt cannot override that. If the model should not delete production data, you remove or restrict the tool — you do not rely on the model to "be careful."
+
+## Good Tools Are Small
+
+Tools work best when they do one clear thing. `read_file`, `search_repo`, and `apply_patch` are easy for the model to choose between. A single tool called `run_anything` with a free-text command is harder to control and harder to debug.
+
+Think of tools like a menu, not a blank check.
+
+## When Things Break
+
+Most agent failures are not "the model got dumber." They are loop problems:
+
+- The model never called the tool it needed.
+- The harness returned incomplete or wrong data.
+- The model called a tool that was too broad or poorly defined.
+- The loop hit a step or cost limit before finishing.
+
+When debugging, trace the loop: what did the model request, what did the harness run, what came back? That is usually faster than rewriting the system prompt.
+
+## How This Connects To MCP
+
+Every agent product implements tools its own way. [Model Context Protocol](/blog/mcp-servers-intro) is one standard for exposing them across clients — same idea, shared interface. The model still only requests tools. The client still executes them.
+
+## Why This Matters
+
+Once you see the split — model proposes, harness executes — a lot of agent behavior clicks into place. Permissions live in the harness, not the prompt. Reliability comes from good tools and a good loop, not just a better model.
+
+If you are using or building an agent, ask: which tools can the model actually call, and who controls them?

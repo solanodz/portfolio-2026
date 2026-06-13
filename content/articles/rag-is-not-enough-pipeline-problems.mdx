@@ -1,0 +1,185 @@
+---
+title: "RAG Is Not Enough: The Pipeline Problems Nobody Talks About"
+publishedAt: "2026-06-09"
+summary: "Basic embedding plus retrieval is only the start. Real RAG quality depends on ingestion, chunking, hybrid search, reranking, context assembly, and evaluation."
+keywords:
+  - AI
+  - RAG
+  - Search
+  - Evaluation
+draft: false
+---
+
+Most RAG demos look the same: split documents, create embeddings, store vectors, retrieve top-k chunks, send them to a model. That is enough to prove the concept. It is not enough to build a reliable product.
+
+The hard problems show up after the demo: chunks are too small to answer questions, too large to retrieve precisely, metadata is missing, keyword-heavy queries fail semantic search, relevant documents are buried below noisy matches, and nobody can tell whether the latest change made retrieval better or worse.
+
+RAG is not a feature. It is a pipeline.
+
+## The Pipeline Has More Than One Failure Point
+
+A RAG answer can fail even when the language model is good.
+
+<Mermaid chart={`
+flowchart LR
+  Docs[Documents] --> Ingest[Ingestion]
+  Ingest --> Chunk[Chunking]
+  Chunk --> Embed[Embedding]
+  Embed --> Index[Indexing]
+  Index --> Retrieve[Retrieval]
+  Retrieve --> Rerank[Reranking]
+  Rerank --> Assemble[Context assembly]
+  Assemble --> Generate[LLM answer]
+  Generate --> Evaluate[Evaluation]
+`} />
+
+If the wrong chunk is created, the right chunk cannot be retrieved. If the retriever returns noisy candidates, the model gets a confusing prompt. If there is no evaluation set, the team optimizes based on vibes.
+
+## Chunking Is A Product Decision
+
+Chunking is often treated as preprocessing. It is really a product decision because it controls what the system can know at query time.
+
+Bad chunks:
+
+- Split tables away from their headings.
+- Split procedure steps across different chunks.
+- Remove document hierarchy.
+- Ignore source, timestamp, owner, or permissions metadata.
+- Mix unrelated sections to hit a token target.
+
+Better chunks preserve meaning and retrieval context.
+
+```ts
+type Chunk = {
+  id: string;
+  documentId: string;
+  sectionPath: string[];
+  text: string;
+  metadata: {
+    source: string;
+    updatedAt: string;
+    permissions: string[];
+    contentType: "policy" | "ticket" | "runbook" | "report";
+  };
+};
+```
+
+A chunk should answer: what is this text, where did it come from, who can see it, and what surrounding context does it need?
+
+## Dense Search Misses Exact Language
+
+Dense embeddings are good at semantic similarity. They are weaker when the query depends on exact terms, product names, error codes, IDs, or acronyms.
+
+Sparse search is the opposite. It is good at lexical matching but can miss synonyms and paraphrases.
+
+That is why Qdrant and Pinecone both document hybrid search patterns. Hybrid search combines dense and sparse signals so the system can handle both meaning and exact language.
+
+| Query type | Dense search | Sparse search | Hybrid search |
+| --- | --- | --- | --- |
+| "refund policy for enterprise plan" | Good | Good | Good |
+| "ERR_BILLING_042" | Weak | Strong | Strong |
+| "why did invoice sync fail?" | Good | Medium | Good |
+| "RLS migration rollback" | Medium | Strong | Strong |
+
+Hybrid search is not magic. It introduces scoring and fusion decisions. Qdrant supports methods like Reciprocal Rank Fusion and DBSF through its Query API. Pinecone documents both single-index and separate-index patterns for combining dense and sparse vectors.
+
+## Retrieval Should Be Multi-Stage
+
+The best candidate set is usually not the final context. A strong pipeline first retrieves broadly, then reranks narrowly.
+
+<Mermaid chart={`
+flowchart TD
+  Query[User query] --> Dense[Dense retrieval]
+  Query --> Sparse[Sparse retrieval]
+  Dense --> Fuse[Fusion]
+  Sparse --> Fuse
+  Fuse --> Candidates[Top 50 to 200 candidates]
+  Candidates --> Reranker[Cross-encoder or late-interaction reranker]
+  Reranker --> Context[Top 5 to 10 context chunks]
+  Context --> LLM[Answer generation]
+`} />
+
+Reranking is slower than retrieval, but it only needs to run on a smaller candidate set. Pinecone describes reranking as a two-stage retrieval process: retrieve candidates first, then score them with a reranking model. Qdrant supports multi-stage queries and late-interaction reranking patterns for the same reason.
+
+## Context Assembly Can Ruin Good Retrieval
+
+Even if retrieval works, context assembly can still break the answer.
+
+Common mistakes:
+
+- Passing too many chunks because "more context is safer."
+- Duplicating chunks from the same document.
+- Losing the document title and section path.
+- Mixing stale and fresh sources without telling the model.
+- Ignoring permissions after retrieval.
+- Sorting by score only, even when chronology matters.
+
+The model should receive compact, labeled context:
+
+```md
+Source: Billing Runbook
+Section: Stripe sync > Retry policy
+Updated: 2026-05-14
+
+If the sync fails with ERR_BILLING_042, retry once after refreshing the customer mapping.
+If the second retry fails, escalate to finance operations.
+```
+
+The label is not decoration. It gives the model provenance and helps the user trust the answer.
+
+## Evaluation Is The Missing Layer
+
+RAG teams often measure the final answer but ignore the retrieval path. That hides the real failure.
+
+A useful RAG eval separates layers:
+
+| Layer | Question | Example metric |
+| --- | --- | --- |
+| Retrieval | Did we fetch the right evidence? | Recall@k, MRR, NDCG |
+| Reranking | Did relevant evidence move up? | NDCG@10, pairwise preference |
+| Context | Did we include enough without noise? | Context precision |
+| Generation | Did the answer use the evidence correctly? | Faithfulness, answer correctness |
+| Product | Did the user solve the task? | Resolution rate, thumbs up/down |
+
+You need a small golden dataset: real queries, expected supporting documents, and expected answer properties. Without that, every change to chunking, embedding model, top-k, fusion weights, or reranker is a guess.
+
+```json
+{
+  "query": "What should I do if invoice sync fails with ERR_BILLING_042?",
+  "expectedDocuments": ["billing-runbook.md"],
+  "expectedSections": ["Stripe sync > Retry policy"],
+  "mustMention": ["refresh customer mapping", "escalate after second failure"]
+}
+```
+
+This dataset does not need to be huge at first. It needs to be real and painful.
+
+## Practical Debugging Questions
+
+When a RAG answer is bad, debug it in order:
+
+1. Was the source document ingested?
+2. Was the relevant section chunked correctly?
+3. Does metadata include source, permissions, freshness, and section path?
+4. Does dense retrieval find it?
+5. Does sparse retrieval find it?
+6. Does hybrid fusion rank it high enough?
+7. Does reranking improve or hurt it?
+8. Did context assembly include it?
+9. Did the model ignore it?
+10. Does the eval set catch this failure now?
+
+Skipping straight to prompt changes is usually a waste of time.
+
+## The Takeaway
+
+RAG quality is not one model choice. It is the result of many small engineering decisions: chunk shape, metadata, hybrid retrieval, reranking, context assembly, and continuous evaluation.
+
+Basic RAG answers easy questions. Production RAG survives messy documents, exact terms, stale context, permission boundaries, and regressions.
+
+Further reading:
+
+- [Qdrant: Hybrid Queries](https://qdrant.tech/documentation/search/hybrid-queries/)
+- [Qdrant: Hybrid Search with Reranking](https://qdrant.tech/documentation/tutorials-basics/reranking-hybrid-search/index.md)
+- [Pinecone: Hybrid Search](https://docs.pinecone.io/guides/search/hybrid-search)
+- [Pinecone: Rerank Results](https://docs.pinecone.io/guides/search/rerank-results)

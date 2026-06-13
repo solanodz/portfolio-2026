@@ -147,11 +147,6 @@ body {
   background: var(--text-faint);
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -171,6 +166,31 @@ a {
 
   .icon-group-hover {
     @apply transition-colors group-hover:text-black dark:group-hover:text-white;
+  }
+
+  .article-link {
+    cursor: pointer;
+    font-weight: 500;
+    color: #000;
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    transition: text-decoration-color 150ms ease;
+  }
+
+  .article-link:hover {
+    text-decoration-color: #34d399;
+  }
+
+  [data-theme="dark"] .article-link {
+    color: #fff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .article-link {
+      color: #fff;
+    }
   }
 
   [data-rehype-pretty-code-figure] {
@@ -290,6 +310,10 @@ a {
   }
   html {
     @apply font-sans;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 }
 

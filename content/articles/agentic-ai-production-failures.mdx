@@ -1,165 +1,282 @@
 ---
 title: "Agentic AI: What Actually Breaks in Production"
-publishedAt: "2026-06-13"
-summary: "Agents fail in ways that demos do not show. Memory management, tool call loops, error recovery, and observability gaps — a practical guide to the failure modes that appear when autonomous AI systems meet real-world constraints."
+publishedAt: "2026-06-09"
+summary: "Agent demos look autonomous. Production agents fail in predictable ways: tool loops, bad recovery, memory drift, weak permissions, missing observability, and workflows with no clear stop condition."
 keywords:
-  - AI agents
-  - Agentic AI
+  - AI
+  - Agents
   - Production
-  - Autonomous AI
-  - Failure modes
+  - Automation
 draft: false
 ---
 
-Every agentic AI demo shows the happy path. The agent receives a task, calls tools in sequence, handles the output of each call, and produces a coherent result. Watch two more demos and you will see the same pattern with different tools.
+Agentic AI demos usually show the happy path: the agent plans, calls tools, updates state, and finishes the task. Production systems are less clean. Tools fail. APIs timeout. Memory gets stale. The model repeats itself. A workflow pauses for approval and resumes with missing context.
 
-Production is different. Production agents encounter inputs the designer did not anticipate, tools that return unexpected formats, rate limits that interrupt execution, and state that drifts from what the agent remembers. The failures are systematic, predictable, and solvable — but only if you design for them.
+The real question is not whether an agent can complete a task once. The real question is whether it can fail safely, recover predictably, and leave enough evidence for an engineer to understand what happened.
 
-## The Observation Problem
+## Integration And Data Quality Fail First
 
-You cannot improve what you cannot see. The first problem with production agents is observability: you do not know what the agent is doing, why it is doing it, or where it is stuck.
+Before you debug the agent loop, check the environment it runs in. In [Anthropic's 2026 enterprise survey](https://resources.anthropic.com/hubfs/The%202026%20State%20of%20AI%20Agents%20Report.pdf), the top adoption barriers were integration with existing systems (46%), data access and quality (42%), and change management (39%). Model capability was not the headline problem.
 
-A simple logging structure is not enough. An agent's reasoning is not linear — it calls tools, receives results, updates internal state, and branches based on what it sees. A log that shows tool calls in sequence misses the decision points between them.
+That matches what teams see in practice. An agent connected to stale CRM data will confidently take wrong actions. An agent without access to the right internal APIs will invent workarounds. An agent deployed without a rollout plan will break workflows that humans still depend on.
 
-Trace each agent session with structured events:
+Treat agent deployment as a systems project:
 
-```python
-@dataclass
-class AgentTrace:
-    session_id: str
-    task: str
-    steps: list[AgentStep]
-    final_output: str | None
-    error: str | None
-    duration_ms: float
+- Map which systems the agent reads from and writes to.
+- Fix data freshness and permissions before expanding autonomy.
+- Plan change management for the humans whose workflows the agent touches.
 
-@dataclass
-class AgentStep:
-    step_number: int
-    reasoning: str  # The agent's thought about what to do next
-    tool: str       # Which tool was called
-    input: dict     # Normalized input to the tool
-    output: str     # Truncated output from the tool
-    status: Literal["success", "error", "rate_limited", "timeout"]
-    duration_ms: float
-```
+If the underlying data and integrations are weak, better prompts only produce more confident failures.
 
-Store these traces. Build a dashboard that shows average steps per task, error rates by tool, reasoning quality spot-checks, and duration distribution.
+## The Agent Loop Is The First Risk
 
-Without this, you are managing an agent you cannot see.
-
-## Memory Is Not Free
-
-Agents that maintain conversation history or persistent context across sessions have a fundamental problem: memory grows, and growth has costs.
-
-The costs are not just token count — they are latency, cost per call, and model quality degradation when context gets long. A 128k context window sounds large until you have a session with 200 turns of tool calls and outputs.
-
-Design memory management explicitly:
+Most agents are built around a loop. That loop needs guardrails. Without them, the agent can call the same tool forever, bounce between two tools, spend too much money, or keep trying after an unrecoverable error.
 
 <Mermaid chart={`
 flowchart TD
-    A[New input] --> B{Memory budget check}
-    B -->|Under limit| C[Append to history]
-    B -->|Over limit| D[Summarize oldest exchanges]
-    C --> E[Execute reasoning]
-    D --> E
-    E --> F{Output fits budget?}
-    F -->|No| G[Truncate or summarize output]
-    F -->|Yes| H[Return to user]
-    G --> H
+  Start[User request] --> Plan[Model plans next step]
+  Plan --> Tool[Tool call]
+  Tool --> Result[Tool result]
+  Result --> Done{Done?}
+  Done -->|no| Plan
+  Done -->|yes| Answer[Final answer]
+  Result --> Error{Error?}
+  Error --> Retry[Retry]
+  Retry --> Plan
 `} />
 
-The summarization step is non-trivial. A naive summary loses critical information. The right approach is to preserve the semantic pattern of decisions made — what was tried, what worked, what was rejected — rather than the raw history.
+This diagram is missing the things production needs: limits, budgets, policies, and stop conditions.
 
-For long-running agents, consider episodic memory: store completed tasks as retrievable episodes, and give the agent a way to query past episodes relevant to the current task. This is closer to how humans maintain working memory.
+## Infinite Tool Loops
 
-## Tool Call Loops
+Tool loops happen when the model believes one more call will fix the situation.
 
-The most common agent failure is the loop: the agent calls a tool, gets a result, decides to call the same tool again with a slightly different input, gets a similar result, and repeats until it hits a limit or produces garbage.
+Common causes:
 
-Loops happen for three reasons:
+- The tool returns vague errors.
+- The model retries without changing arguments.
+- The agent has no max step count.
+- The workflow has no definition of "done."
+- The tool output does not tell the model what changed.
 
-**Wrong success criteria:** The agent does not know when it is done. It keeps calling the search tool because it has not been told that results are good enough.
+Add loop controls:
 
-**Error recovery that makes it worse:** The agent tries to recover from an error by calling the same tool differently. Sometimes this helps. Sometimes it makes the output worse, and the agent tries again.
+```ts
+type AgentLimits = {
+  maxSteps: number;
+  maxToolCallsPerTool: number;
+  maxRuntimeMs: number;
+  maxCostUsd: number;
+};
 
-**Stuck in a local optimum:** The agent finds a partial solution and keeps refining it rather than stepping back and trying a different approach.
-
-The fix for the first case is explicit completion signals. Tell the agent what a successful outcome looks like and give it a way to check whether it has reached it.
-
-The fix for the second case is error categorization. Distinguish between recoverable errors (timeout, rate limit, temporary service unavailable) and fatal errors (invalid input, authentication failure, schema mismatch). Recoverable errors deserve retry with backoff. Fatal errors deserve a clean failure message to the user, not loop behavior.
-
-The fix for the third case is harder. It requires the agent to reason about its own reasoning — to recognize when it is going in circles and try something different. This is part prompt design, part tool design. Give the agent tools that let it back up rather than only move forward.
-
-## Error Recovery Patterns
-
-Agents encounter errors constantly. The design question is how they respond.
-
-**No recovery:** The agent returns an error to the user immediately. Simple, but bad for transient errors that would resolve on retry.
-
-**Naive retry:** The agent retries the same tool call immediately. This works for timeout errors but amplifies rate limit errors.
-
-**Retry with backoff:** The agent waits before retrying, exponentially increasing the wait time. Better for rate limits, worse for impatient users.
-
-**Fallback to alternative:** The agent tries a different tool or approach when the primary fails. Requires having designed the alternative in advance.
-
-```python
-async def call_with_recovery(tool: Tool, input: dict, max_retries: int = 3) -> ToolResult:
-    for attempt in range(max_retries):
-        try:
-            return await tool.execute(input)
-        except RateLimitError:
-            wait_time = 2 ** attempt
-            await asyncio.sleep(wait_time)
-        except TransientError:
-            wait_time = 1
-            await asyncio.sleep(wait_time)
-        except FatalError:
-            raise  # Do not retry fatal errors
-    return ToolResult(error="Max retries exceeded", tool=tool.name)
+function shouldStop(run: AgentRun, limits: AgentLimits) {
+  return (
+    run.steps.length >= limits.maxSteps ||
+    run.runtimeMs >= limits.maxRuntimeMs ||
+    run.costUsd >= limits.maxCostUsd ||
+    run.repeatedToolCalls > limits.maxToolCallsPerTool
+  );
+}
 ```
 
-The categorization of errors matters. Train your error handling on real errors from production, not assumptions about what might go wrong.
+The model should not be responsible for enforcing the budget. The runtime should.
 
-## State Management Across Steps
+## Planning Failures Look Like Tool Failures
 
-Agents that handle multi-step tasks need to manage state between steps. The failure modes are subtle.
+Not every loop starts in the tool layer. Singapore's [IMDA Agentic AI governance framework](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf) highlights planning and reasoning as their own failure surface: the agent can hallucinate a plan, misread user intent, or drift away from an earlier plan even when individual tool calls succeed.
 
-**State inconsistency:** The agent reads from one source, writes to another, and the two get out of sync. Example: reads a record from the database, then writes to a file based on a stale version of that record.
+That drift shows up in production as:
 
-**Partial failure without rollback:** The agent completes step 1, starts step 2, and step 2 fails. Step 1 has already run and cannot be undone. The system is in an inconsistent state.
+- Calling valid tools in the wrong order.
+- Solving a different problem than the user asked for.
+- Repeating work because the plan lost track of completed steps.
+- Escalating scope without asking for approval.
 
-**Silent state changes:** External systems change state between agent steps. The agent does not know and acts on stale information.
+When debugging a bad run, inspect the plan before blaming the tool implementation.
 
-The pattern that helps: make each step idempotent and small. Large steps that do many things are hard to recover from. Small steps that do one thing are easier to verify and retry.
+## Memory Drift
 
-For partial failure, design rollback into the workflow. Not every step needs rollback — only the ones that produce observable side effects. Track which steps have completed and have a recovery path for each.
+Memory sounds useful until it starts preserving the wrong thing.
 
-## The Authority Problem
+Bad memory stores:
 
-Agents that take actions on behalf of users need clear authority boundaries. The agent should know what it is allowed to do without asking, what requires confirmation, and what it cannot do under any circumstances.
+- Temporary user preferences as permanent facts.
+- Outdated project state.
+- Tool outputs without timestamps.
+- Failed assumptions from earlier steps.
+- Sensitive data that should not persist.
 
-This is not a capability problem — it is a design problem. The tools the agent uses should encode the authority model.
+Useful memory is scoped.
 
-```python
-# Tools with implicit authority checks
-tool("send_email", authorization_required=True, can_retry=False)
-tool("create_issue", authorization_required=True, max_per_hour=50)
-tool("read_dashboard", authorization_required=False)
+| Memory type | Lifetime | Example |
+| --- | --- | --- |
+| Step state | One tool call | Parsed arguments |
+| Run state | One workflow execution | Current ticket, retry count |
+| Thread memory | Conversation | User goal, decisions made |
+| Long-term memory | Explicitly saved | Stable preference or domain fact |
 
-# Tools that always require explicit user confirmation
-tool("delete_record", authorization_required="always_confirm")
-tool("export_data", authorization_required="always_confirm")
+Do not let every agent run write to long-term memory. Promote facts deliberately.
+
+## Error Recovery Is A Product Feature
+
+Agents do not need to recover from every error. They need to recover from expected errors and stop cleanly on dangerous ones.
+
+```ts
+type ToolError =
+  | { kind: "retryable"; message: string; retryAfterMs?: number }
+  | { kind: "needs_user_input"; message: string; missingFields: string[] }
+  | { kind: "permission_denied"; message: string }
+  | { kind: "fatal"; message: string };
 ```
 
-When the agent calls a tool that requires authorization and the authorization check fails, the agent should report the failure cleanly rather than attempting to work around it.
+Different errors require different behavior:
 
-## What to Build First
+- `retryable`: backoff and retry with a cap.
+- `needs_user_input`: ask the user, do not guess.
+- `permission_denied`: stop or request authorization.
+- `fatal`: stop and summarize what failed.
 
-Start with tracing. If you cannot see what the agent is doing, you cannot improve it. Instrument the agent to emit structured traces from day one, even before the agent is production-ready.
+Vague errors create bad agent behavior. Structured errors create recoverable workflows.
 
-Add observability for tool errors next — which tools fail, how often, and why. A dashboard that shows error rates by tool and error type will surface the problems that need solving first.
+## Tool Permissions Break Late
 
-Then add completion signal monitoring — are tasks actually completing, or are they hitting step limits without producing output? A high step-limit-exhaustion rate is a sign that the agent is looping or that the task is too complex for the current tool set.
+During development, agents usually run with broad permissions. In production, the agent touches real systems and suddenly permissions matter.
 
-Build the feedback loop from production observations to agent improvements. The first version of any agent will be wrong in many ways. The teams that iterate fastest are the ones with the clearest signal about what is broken.
+The failure pattern:
+
+1. The agent retrieves private data it should not see.
+2. The agent calls a write tool without approval.
+3. The agent sends output to the wrong channel.
+4. The logs contain sensitive tool payloads.
+
+Fix this with scoped tools and policy checks.
+
+<Mermaid chart={`
+flowchart LR
+  Agent[Agent] --> ToolRequest[Tool request]
+  ToolRequest --> Policy[Policy check]
+  Policy -->|allowed| Execute[Execute tool]
+  Policy -->|approval needed| Human[Human approval]
+  Policy -->|denied| Stop[Stop safely]
+  Human --> Execute
+`} />
+
+The model can propose an action. The runtime decides whether it is allowed.
+
+Prefer structural controls over prompt-layer guardrails. [IMDA's framework](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf) is explicit here: telling an agent in a system prompt not to call a tool is weaker than access control that makes the tool impossible to invoke. Prompts can be bypassed, forgotten, or overridden by context pressure. Permissions, approval gates, and scoped credentials should live in the runtime.
+
+Also tier autonomy by risk. [Dayos](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf), cited in the same framework, routes IT tickets into three tiers: low-risk reversible work runs automatically with periodic audits, moderate-risk work requires human approval before execution, and high-risk production changes stay human-only until safeguards mature. That pattern scales better than giving every agent the same level of freedom.
+
+## Multi-Agent Systems Add New Failure Modes
+
+Single-agent failures are painful. Multi-agent failures can compound.
+
+[IMDA](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf) identifies several production risks that do not show up in single-agent demos:
+
+| Failure mode | What it looks like |
+| --- | --- |
+| Agent sprawl | Dozens of agents with overlapping tools, unclear ownership, and no central catalog |
+| Miscoordination | Two agents interpret the same goal differently and work against each other |
+| Conflict | One agent optimizes speed while another optimizes cost or compliance |
+| Cascading errors | A bad intermediate result propagates through later steps and amplifies impact |
+
+Singapore's framework also notes that multi-agent systems can produce emergent behavior that does not appear when each agent is tested alone. That means pre-deployment testing needs both unit-level agent tests and system-level multi-agent tests.
+
+If you do not need multiple agents, do not add them for architecture aesthetics. Start with one bounded agent and split only when the task genuinely requires specialization.
+
+## State Machines Beat Vibes
+
+For business workflows, state should be explicit. If the agent is onboarding a customer, triaging an issue, or processing an alert, define the allowed states.
+
+```ts
+type WorkflowState =
+  | "started"
+  | "gathering_context"
+  | "waiting_for_approval"
+  | "executing"
+  | "completed"
+  | "failed";
+
+const allowedTransitions = {
+  started: ["gathering_context"],
+  gathering_context: ["waiting_for_approval", "executing", "failed"],
+  waiting_for_approval: ["executing", "failed"],
+  executing: ["completed", "failed"],
+  completed: [],
+  failed: [],
+};
+```
+
+This keeps the agent from jumping from "missing context" to "executed action" just because the model produced a confident plan.
+
+## Observability Is Not Optional
+
+When an agent fails, you need to replay the run mentally.
+
+Capture:
+
+- User request.
+- Planner output.
+- Tool selected.
+- Tool arguments after validation.
+- Tool result.
+- State transition.
+- Retry count.
+- Latency and cost.
+- Final answer.
+- Human approvals.
+
+Without these traces, debugging becomes prompt archaeology.
+
+[OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/gen-ai/) now defines [agent-specific span types](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-agent-spans/) such as `invoke_agent`, `invoke_workflow`, and `execute_tool`, along with attributes like `gen_ai.agent.id`, `gen_ai.agent.name`, and `gen_ai.agent.version`. That matters because a generic "LLM call" span is not enough when one user request fans out into several agents, tools, and retries. Instrument at the workflow level, not just the model level.
+
+Human approval is part of observability too. [IMDA](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf) recommends tracking human override rate and approval response time. If approvers almost never reject agent actions, or approve in a few seconds every time, you may have automation bias rather than meaningful oversight.
+
+## Test Before You Trust The Loop
+
+[LangSmith](https://docs.langchain.com/langsmith/evaluation) separates offline evaluation before release from online evaluation on live traffic. For agents, both are necessary, but the test dimensions are different from chatbot evals.
+
+Before deployment, [IMDA](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf) recommends testing at least:
+
+- Overall task execution accuracy.
+- Policy adherence.
+- Tool-use accuracy, including wrong-tool and malformed-argument cases.
+
+After deployment, turn production failures into future tests. [LangSmith's recommended loop](https://docs.langchain.com/langsmith/evaluation) is straightforward: a bad trace gets reviewed, added to a dataset, rerun in an offline experiment, fixed, redeployed, and monitored again with online evaluators such as format checks, safety heuristics, or reference-free LLM judges.
+
+That loop is how agent systems stop repeating the same production mistake.
+
+## What Actually Helps
+
+The best production agent systems are not the most autonomous. They are the most constrained.
+
+Practical controls:
+
+- Max step count.
+- Max runtime.
+- Tool call deduplication.
+- Idempotency keys for writes.
+- Structured tool errors.
+- Structural permissions, not prompt-only guardrails.
+- Tiered autonomy based on reversibility and blast radius.
+- Human approval for high-risk actions.
+- Monitoring of override rate and approval quality.
+- State machines for long-running workflows.
+- Agent and tool spans, not just model spans.
+- Pre-deployment tests for execution, policy, and tool use.
+- Online evals plus offline regression datasets.
+- Gradual rollout instead of full autonomy on day one.
+- Replay failing traces before changing prompts.
+
+## The Takeaway
+
+Agentic AI breaks less like a chatbot and more like a distributed workflow system. The model is only one part of the runtime.
+
+If you want agents in production, design for failure first: loops, retries, permissions, memory, state transitions, and observability. The agent should be powerful inside a narrow lane, not free inside a vague one.
+
+Further reading:
+
+- [Anthropic: The 2026 State of AI Agents Report](https://resources.anthropic.com/hubfs/The%202026%20State%20of%20AI%20Agents%20Report.pdf)
+- [LangSmith: Evaluation](https://docs.langchain.com/langsmith/evaluation)
+- [OpenTelemetry: Semantic conventions for generative AI systems](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+- [IMDA: Model AI Governance Framework for Agentic AI](https://www.imda.gov.sg/-/media/imda/files/about/emerging-tech-and-research/artificial-intelligence/mgf-for-agentic-ai.pdf)
