@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Geist } from "next/font/google";
+import { SiteFrame } from "./components/site-frame";
 import { SiteNav } from "./components/site-nav";
 import { ThemeProvider } from "./components/theme-provider";
 import "./globals.css";
@@ -59,6 +60,7 @@ export default function RootLayout({
       <body className="min-h-full bg-bg font-sans text-text">
         <ThemeProvider>
           <SiteNav />
+          <SiteFrame />
           {children}
         </ThemeProvider>
       </body>

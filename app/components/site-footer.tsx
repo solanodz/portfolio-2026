@@ -51,42 +51,47 @@ export function SiteFooter() {
     }));
 
   return (
-    <footer className="mt-16 border-t border-line pt-8">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="font-medium text-text">{profile.name}</p>
-          <p className="mt-1 text-sm text-muted">
-            {profile.role} · {profile.location}
-          </p>
-        </div>
+    <footer className="mt-20 w-full overflow-visible">
+      <div aria-hidden="true" className="site-full-bleed" />
+      <div className="site-main-inner pt-10">
+        <div className="site-text">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium text-text">{profile.name}</p>
+            <p className="mt-1 text-sm text-muted">
+              {profile.role} · {profile.location}
+            </p>
+          </div>
 
-        <nav
-          aria-label="Contact and links"
-          className="flex flex-wrap items-center gap-4"
-        >
-          <CopyEmailButton
-            email={profile.email}
-            iconOnly
-            className={iconLink}
-            iconClassName={iconClass}
-          />
-          {navLinks.map((link) => {
-            const Icon = link.icon;
-            return (
-              <a
-                key={link.label}
-                href={link.href}
-                aria-label={link.label}
-                className={iconLink}
-                {...(link.external
-                  ? { target: "_blank", rel: "noopener noreferrer" }
-                  : {})}
-              >
-                <Icon className={iconClass} />
-              </a>
-            );
-          })}
-        </nav>
+          <nav
+            aria-label="Contact and links"
+            className="flex flex-wrap items-center gap-4"
+          >
+            <CopyEmailButton
+              email={profile.email}
+              iconOnly
+              className={iconLink}
+              iconClassName={iconClass}
+            />
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  aria-label={link.label}
+                  className={iconLink}
+                  {...(link.external
+                    ? { target: "_blank", rel: "noopener noreferrer" }
+                    : {})}
+                >
+                  <Icon className={iconClass} />
+                </a>
+              );
+            })}
+          </nav>
+        </div>
+        </div>
       </div>
     </footer>
   );

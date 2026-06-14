@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
 import { cn } from "@/lib/utils";
+import { getSiteFrameInset, getSiteFrameMax, getSiteFrameNavInset } from "@/lib/site-frame";
 
 const navItems = [
   { href: "/experience", label: "Experience" },
@@ -17,19 +18,24 @@ function isActive(pathname: string, href: string) {
 
 export function SiteNav() {
   const pathname = usePathname();
+  const frameInset = getSiteFrameInset(getSiteFrameMax());
+  const navInset = getSiteFrameNavInset(getSiteFrameMax());
 
   return (
     <>
       <header className="fixed top-0 z-50 w-full border-b border-line bg-bg">
-        <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-6">
+        <div className="relative flex h-12 items-center">
           <Link
             href="/"
-            className="text-sm text-text transition-colors hover:text-secondary"
+            className="absolute left-6 text-sm text-text transition-colors hover:text-secondary"
           >
             solanodz
           </Link>
 
-          <div className="flex items-center gap-5">
+          <div
+            className="flex w-full items-center justify-end gap-5"
+            style={{ paddingLeft: frameInset, paddingRight: navInset }}
+          >
             <nav aria-label="Main" className="flex items-center gap-5">
               {navItems.map((item) => {
                 const active = isActive(pathname, item.href);

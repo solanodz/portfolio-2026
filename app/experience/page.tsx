@@ -24,12 +24,14 @@ export default function ExperiencePage() {
   }, 0);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16 text-[15px] leading-relaxed text-secondary sm:py-20">
+    <main className="site-main mx-auto max-w-4xl">
+      <div className="site-main-inner">
+      <div className="site-text">
       <header>
         <h1 className="text-xl font-semibold tracking-tight text-text">
           Experience
         </h1>
-        <p className="mt-2 max-w-xl text-muted">
+        <p className="mt-3 max-w-xl text-muted">
           A closer look at where I&apos;ve worked, the projects I&apos;ve
           shipped, and the stack behind each one.
         </p>
@@ -38,9 +40,12 @@ export default function ExperiencePage() {
         </p>
       </header>
 
-      <section className="mt-12 border-t border-line pt-10">
+      <section className="site-section">
         <WorkPath detailed />
       </section>
+
+      </div>
+      </div>
 
       <SiteFooter />
     </main>

@@ -5,31 +5,29 @@ import type { RelatedArticle } from "@/lib/articles";
 
 export function RelatedArticles({ articles }: { articles: RelatedArticle[] }) {
   if (articles.length === 0) {
-    return null;
+    return <aside className="hidden" aria-hidden="true" />;
   }
 
   return (
-    <aside className="hidden lg:block">
-      <nav
-        aria-label="Related articles"
-        className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto border-l border-line pl-8"
-      >
-        <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
+    <aside className="article-layout-sidebar w-full max-w-none justify-self-stretch overflow-x-hidden overflow-y-auto">
+      <nav aria-label="Related articles">
+        <p className="mb-5 px-4 font-mono text-[11px] uppercase tracking-[0.18em] text-faint min-[1400px]:px-5 min-[1536px]:px-6 min-[1800px]:px-8">
           Related
         </p>
-        <ul className="space-y-6">
+        <ul className="space-y-1">
           {articles.map((article) => (
             <li key={article.slug}>
               <Link
                 href={`/blog/${article.slug}`}
-                className="group block"
+                className="block w-full transition-colors hover:bg-bg-hover"
               >
+                <div className="px-4 py-2.5 min-[1400px]:px-5 min-[1536px]:px-6 min-[1800px]:px-8">
                 <span className="inline-flex items-start gap-1.5">
-                  <span className="text-[13px] font-semibold leading-snug text-text transition-colors group-hover:text-emerald-400">
+                  <span className="text-sm font-semibold leading-snug text-text">
                     {article.metadata.title}
                   </span>
                   <ArrowUpRight
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint transition-colors group-hover:text-emerald-400"
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint"
                     strokeWidth={1.5}
                   />
                 </span>
@@ -48,6 +46,7 @@ export function RelatedArticles({ articles }: { articles: RelatedArticle[] }) {
                     ))}
                   </div>
                 ) : null}
+                </div>
               </Link>
             </li>
           ))}

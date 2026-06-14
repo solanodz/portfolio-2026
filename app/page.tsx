@@ -26,7 +26,7 @@ function SectionLabel({
   className?: string;
 }) {
   return (
-    <h2 className={cn("mb-4 text-sm font-medium text-muted", className)}>
+    <h2 className={cn("mb-6 text-sm font-medium text-muted", className)}>
       {children}
     </h2>
   );
@@ -82,7 +82,9 @@ function RoleLine({ role }: { role: string }) {
 
 export default function Home() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16 text-[15px] leading-relaxed text-secondary sm:py-20">
+    <main className="site-main mx-auto max-w-4xl">
+      <div className="site-main-inner">
+      <div className="site-text">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[2rem] sm:leading-tight">
           {profile.name}
@@ -127,9 +129,9 @@ export default function Home() {
         </div>
       </header>
 
-      <p className="mt-8">{profile.summary}</p>
+      <p className="mt-10">{profile.summary}</p>
 
-      <section className="mt-12 border-t border-line pt-10">
+      <section className="site-section">
         <div className="mb-4 flex items-baseline justify-between">
           <SectionLabel className="mb-0">Experience</SectionLabel>
           <Link
@@ -143,12 +145,12 @@ export default function Home() {
         <WorkPath />
       </section>
 
-      <section className="mt-12 border-t border-line pt-10">
+      <section className="site-section">
         <SectionLabel>Stack &amp; Tools</SectionLabel>
         <SkillGroups />
       </section>
 
-      <section className="mt-12 border-t border-line pt-10">
+      <section className="site-section">
         <SectionLabel>Also worked on</SectionLabel>
         <ul className="space-y-2">
           {additional.map((item, i) => (
@@ -163,7 +165,7 @@ export default function Home() {
         </ul>
       </section>
 
-      <section className="mt-12 border-t border-line pt-10">
+      <section className="site-section">
         <SectionLabel>Languages</SectionLabel>
         <div className="space-y-1">
           {languages.map((lang) => (
@@ -174,6 +176,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      </div>
+      </div>
 
       <SiteFooter />
     </main>

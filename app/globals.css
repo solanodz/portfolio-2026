@@ -107,6 +107,7 @@ html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   color-scheme: light;
+  overflow-x: clip;
 }
 
 html[data-theme="dark"] {
@@ -147,6 +148,13 @@ body {
   background: var(--text-faint);
 }
 
+.site-full-bleed {
+  height: 1px;
+  background: var(--border);
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -166,6 +174,52 @@ body {
 
   .icon-group-hover {
     @apply transition-colors group-hover:text-black dark:group-hover:text-white;
+  }
+
+  .site-main {
+    @apply py-16 text-[15px] leading-7 text-secondary sm:py-20;
+  }
+
+  .site-main-inner {
+    @apply px-10 sm:px-12;
+  }
+
+  .site-main-wide .site-main-inner {
+    @apply lg:px-16;
+  }
+
+  .site-text {
+    @apply max-w-3xl;
+  }
+
+  .site-section {
+    @apply mt-16 border-t border-line pt-12;
+  }
+
+  .article-layout {
+    @apply grid max-w-full grid-cols-1 items-start overflow-x-clip;
+  }
+
+  .article-layout > * {
+    min-width: 0;
+  }
+
+  .article-layout-content {
+    @apply mx-auto min-w-0 w-full max-w-[42rem] self-start px-6 sm:px-10;
+  }
+
+  @media (min-width: 1400px) {
+    .article-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 56rem) minmax(0, 1fr);
+    }
+
+    .article-layout-content {
+      @apply mx-0 max-w-none;
+    }
+  }
+
+  .article-layout-sidebar {
+    @apply sticky top-16 hidden max-h-[calc(100vh-4rem)] w-full max-w-full self-start min-[1400px]:block;
   }
 
   .article-link {
@@ -307,6 +361,10 @@ body {
   }
   body {
     @apply bg-bg text-text;
+    max-width: 100%;
+  }
+  main {
+    overflow-x: visible;
   }
   html {
     @apply font-sans;

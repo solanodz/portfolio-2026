@@ -300,7 +300,7 @@ function WorkGroup({
 
 export function WorkPath({ detailed = false }: { detailed?: boolean }) {
   return (
-    <div className={detailed ? "space-y-12" : "space-y-8"}>
+    <div className={detailed ? "space-y-14" : "space-y-10"}>
       {experience.map((job) => (
         <WorkGroup key={job.id} job={job} detailed={detailed} />
       ))}

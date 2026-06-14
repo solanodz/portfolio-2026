@@ -74,58 +74,55 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const relatedArticles = await getRelatedPublishedArticles(slug);
 
   return (
-    <main className="mx-auto max-w-[100rem] px-6 py-16 text-[15px] leading-relaxed text-secondary sm:px-10 sm:py-20 lg:px-12">
+    <main className="site-main w-full">
       <ReadingProgress />
-      <div className="mt-8 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_18rem] lg:gap-x-14 xl:grid-cols-[16rem_minmax(0,1fr)_20rem] xl:gap-x-20 2xl:gap-x-24">
+
+      <div className="article-layout mt-6">
         <ArticleIndex headings={article.headings} />
 
-        <div className="min-w-0">
-          <article>
-            <header>
-              <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[2rem] sm:leading-tight">
-                {article.metadata.title}
-              </h1>
-              <p className="mt-4 max-w-4xl text-muted">
-                {article.metadata.summary}
-              </p>
-              <div className="mt-4 space-y-1 font-mono text-xs text-faint">
-                <p>Published {formatArticleDate(article.metadata.publishedAt)}</p>
-                {article.metadata.updatedAt ? (
-                  <p>Updated {formatArticleDate(article.metadata.updatedAt)}</p>
-                ) : null}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-1">
-                {article.metadata.keywords.map((keyword) => (
-                  <span
-                    key={keyword}
-                    className="shrink-0 rounded bg-emerald-400 px-2 py-1 text-[11px] font-medium leading-none text-white dark:text-black"
-                  >
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-            </header>
-
-            <div className="mt-10 border-t border-line pt-10">
-              <MDXRemote
-                source={article.content}
-                components={mdxComponents}
-                options={{
-                  blockJS: false,
-                  mdxOptions: {
-                    remarkPlugins: [remarkGfm],
-                    rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
-                  },
-                }}
-              />
+        <div className="article-layout-content">
+          <header>
+            <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[2rem] sm:leading-tight">
+              {article.metadata.title}
+            </h1>
+            <p className="mt-4 text-muted">{article.metadata.summary}</p>
+            <div className="mt-4 space-y-1 font-mono text-xs text-faint">
+              <p>Published {formatArticleDate(article.metadata.publishedAt)}</p>
+              {article.metadata.updatedAt ? (
+                <p>Updated {formatArticleDate(article.metadata.updatedAt)}</p>
+              ) : null}
             </div>
-          </article>
+            <div className="mt-4 flex flex-wrap gap-1">
+              {article.metadata.keywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className="shrink-0 rounded bg-emerald-400 px-2 py-1 text-[11px] font-medium leading-none text-white dark:text-black"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </header>
 
-          <SiteFooter />
+          <article className="mt-8 border-t border-line pt-8">
+            <MDXRemote
+              source={article.content}
+              components={mdxComponents}
+              options={{
+                blockJS: false,
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
+                },
+              }}
+            />
+          </article>
         </div>
 
         <RelatedArticles articles={relatedArticles} />
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

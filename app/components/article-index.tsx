@@ -42,7 +42,7 @@ export function ArticleIndex({ headings }: { headings: ArticleHeading[] }) {
   }, [headings]);
 
   if (headings.length === 0) {
-    return null;
+    return <aside className="hidden min-[1400px]:block" aria-hidden="true" />;
   }
 
   function scrollToHeading(heading: ArticleHeading) {
@@ -61,11 +61,8 @@ export function ArticleIndex({ headings }: { headings: ArticleHeading[] }) {
   }
 
   return (
-    <aside className="hidden lg:block">
-      <nav
-        aria-label="Article index"
-        className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto pr-8"
-      >
+    <aside className="article-layout-sidebar justify-self-end overflow-y-auto pl-3 pr-4 min-[1400px]:max-w-[13rem] min-[1400px]:pl-4 min-[1400px]:pr-5 min-[1536px]:max-w-[15rem] min-[1536px]:pl-5 min-[1536px]:pr-6 min-[1800px]:max-w-[17rem] min-[1800px]:pl-6 min-[1800px]:pr-8">
+      <nav aria-label="Article index">
         <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
           Index
         </p>
@@ -77,7 +74,7 @@ export function ArticleIndex({ headings }: { headings: ArticleHeading[] }) {
               <li
                 key={heading.id}
                 className={[
-                  "-ml-px border-l-2",
+                  "-ml-px border-l",
                   heading.depth === 3 ? "pl-8" : "pl-5",
                   isActive ? "border-emerald-400" : "border-transparent",
                 ].join(" ")}
