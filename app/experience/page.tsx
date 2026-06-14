@@ -24,14 +24,14 @@ export default function ExperiencePage() {
   }, 0);
 
   return (
-    <main className="site-main mx-auto max-w-4xl">
+    <main className="site-main mx-auto w-full max-w-4xl">
       <div className="site-main-inner">
       <div className="site-text">
       <header>
-        <h1 className="text-xl font-semibold tracking-tight text-text">
+        <h1 className="text-[1.625rem] font-semibold leading-tight tracking-tight text-text sm:text-xl md:text-2xl">
           Experience
         </h1>
-        <p className="mt-3 max-w-xl text-muted">
+        <p className="mt-2 max-w-xl text-muted sm:mt-3">
           A closer look at where I&apos;ve worked, the projects I&apos;ve
           shipped, and the stack behind each one.
         </p>

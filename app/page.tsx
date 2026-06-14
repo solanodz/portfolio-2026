@@ -74,7 +74,7 @@ function HeaderLink({
 
 function RoleLine({ role }: { role: string }) {
   return (
-    <p className="mb-5 text-xl font-semibold text-emerald-400">
+    <p className="mb-4 text-lg font-semibold leading-snug text-emerald-400 sm:mb-5 sm:text-xl">
       {role}
     </p>
   );
@@ -82,11 +82,11 @@ function RoleLine({ role }: { role: string }) {
 
 export default function Home() {
   return (
-    <main className="site-main mx-auto max-w-4xl">
+    <main className="site-main mx-auto w-full max-w-4xl">
       <div className="site-main-inner">
       <div className="site-text">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[2rem] sm:leading-tight">
+        <h1 className="text-[1.625rem] font-semibold leading-tight tracking-tight text-text sm:text-2xl md:text-[2rem]">
           {profile.name}
         </h1>
         <RoleLine role={profile.role} />
@@ -104,7 +104,7 @@ export default function Home() {
           </span>
         </p>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
           {profile.links.map((link) => {
             const Icon = linkIcons[link.label as keyof typeof linkIcons];
 
@@ -129,10 +129,10 @@ export default function Home() {
         </div>
       </header>
 
-      <p className="mt-10">{profile.summary}</p>
+      <p className="mt-8 sm:mt-10">{profile.summary}</p>
 
       <section className="site-section">
-        <div className="mb-4 flex items-baseline justify-between">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
           <SectionLabel className="mb-0">Experience</SectionLabel>
           <Link
             href="/experience"

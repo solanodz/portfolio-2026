@@ -51,7 +51,7 @@ export function SiteFooter() {
     }));
 
   return (
-    <footer className="mt-20 w-full overflow-visible">
+    <footer className="mt-12 w-full overflow-visible sm:mt-16 md:mt-20">
       <div aria-hidden="true" className="site-full-bleed" />
       <div className="site-main-inner pt-10">
         <div className="site-text">

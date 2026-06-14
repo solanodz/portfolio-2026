@@ -123,7 +123,7 @@ function ProjectAccordion({
   };
 
   return (
-    <div className="relative mt-3 ml-2">
+    <div className="relative mt-2 ml-0 sm:mt-3 sm:ml-2">
       <span
         aria-hidden
         className="absolute top-2 bottom-2 left-[13px] w-[1.5px] rounded-full bg-tree-line"
@@ -162,7 +162,7 @@ function ProjectAccordion({
                   />
                 </button>
                 {isOpen ? (
-                  <div className="pr-2 pb-3 pl-0">
+                  <div className="pr-0 pb-3 pl-0 sm:pr-2">
                     <ProjectDetail detail={highlight.detail} />
                   </div>
                 ) : null}
@@ -193,8 +193,8 @@ function EngagementBlock({
   className?: string;
 }) {
   return (
-    <div className={cn("mt-8 first:mt-6", className)}>
-      <p className="text-[15px] font-medium text-muted">{context}</p>
+    <div className={cn("mt-6 first:mt-4 sm:mt-8 sm:first:mt-6", className)}>
+      <p className="text-sm font-medium text-muted sm:text-[15px]">{context}</p>
       <p className="mt-2 text-sm leading-relaxed text-secondary">{summary}</p>
 
       {detailed && stack?.length ? (
@@ -240,7 +240,7 @@ function WorkGroup({
 }) {
   return (
     <div>
-      <div className="flex items-center gap-3">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:flex sm:items-center sm:gap-3">
         {job.logo ? (
           <CompanyLogo
             src={job.logo}
@@ -250,28 +250,30 @@ function WorkGroup({
         ) : (
           <NodeIcon name={job.icon} className="text-text" />
         )}
-        <div className="min-w-0 flex-1">
-          <span className="font-medium text-text">{job.company}</span>
-          <span className="text-emerald-400"> · {job.role}</span>
+        <div className="col-start-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className="font-medium text-text">{job.company}</span>
+            <span className="text-emerald-400">· {job.role}</span>
+            {job.current ? (
+              <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[11px] font-medium leading-none text-white dark:text-black">
+                Now
+              </span>
+            ) : null}
+          </div>
         </div>
-        {job.current ? (
-          <span className="shrink-0 rounded bg-emerald-400 px-1.5 py-0.5 text-[11px] font-medium leading-none text-white dark:text-black">
-            Now
-          </span>
-        ) : null}
-        <span className="shrink-0 font-mono text-xs text-faint">
+        <span className="col-span-2 col-start-2 font-mono text-xs text-faint sm:col-auto sm:ml-auto sm:shrink-0">
           {job.period}
         </span>
       </div>
 
       {job.clients ? (
-        <div className="mt-1.5 pl-7">
+        <div className="mt-1.5 pl-0 sm:pl-7">
           <p className="text-sm leading-relaxed text-secondary">{job.summary}</p>
         </div>
       ) : null}
 
       {job.clients ? (
-        <div className="pl-7">
+        <div className="pl-0 sm:pl-7">
           {job.clients.map((client) => (
             <ClientGroup
               key={client.id}
@@ -282,7 +284,7 @@ function WorkGroup({
           ))}
         </div>
       ) : job.context && job.highlights ? (
-        <div className="mt-1.5 pl-7">
+        <div className="mt-1.5 pl-0 sm:pl-7">
           <EngagementBlock
             context={job.context}
             summary={job.summary}
@@ -300,7 +302,7 @@ function WorkGroup({
 
 export function WorkPath({ detailed = false }: { detailed?: boolean }) {
   return (
-    <div className={detailed ? "space-y-14" : "space-y-10"}>
+    <div className={detailed ? "space-y-10 sm:space-y-14" : "space-y-8 sm:space-y-10"}>
       {experience.map((job) => (
         <WorkGroup key={job.id} job={job} detailed={detailed} />
       ))}

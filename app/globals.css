@@ -176,12 +176,17 @@ body {
     @apply transition-colors group-hover:text-black dark:group-hover:text-white;
   }
 
+  :root {
+    --site-frame-inset: calc((100vw - min(56rem, 100vw)) / 2);
+    --site-frame-nav-inset: calc(var(--site-frame-inset) + 1.5rem);
+  }
+
   .site-main {
-    @apply py-16 text-[15px] leading-7 text-secondary sm:py-20;
+    @apply py-10 text-[15px] leading-7 text-secondary sm:py-16 md:py-20;
   }
 
   .site-main-inner {
-    @apply px-10 sm:px-12;
+    @apply px-4 sm:px-8 md:px-10 lg:px-12;
   }
 
   .site-main-wide .site-main-inner {
@@ -189,11 +194,18 @@ body {
   }
 
   .site-text {
-    @apply max-w-3xl;
+    @apply w-full min-w-0 max-w-3xl;
   }
 
   .site-section {
-    @apply mt-16 border-t border-line pt-12;
+    @apply mt-10 border-t border-line pt-8 sm:mt-14 sm:pt-10 md:mt-16 md:pt-12;
+  }
+
+  @media (min-width: 896px) {
+    .site-nav-inset {
+      padding-left: var(--site-frame-inset);
+      padding-right: var(--site-frame-nav-inset);
+    }
   }
 
   .article-layout {
