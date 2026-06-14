@@ -167,6 +167,27 @@ export async function getPublishedArticles() {
     .sort((a, b) => b.metadata.publishedAt.localeCompare(a.metadata.publishedAt));
 }
 
+export async function getLatestPublishedArticles(limit = 3) {
+  const articles = await getPublishedArticles();
+  const seenTitles = new Set<string>();
+  const latest: typeof articles = [];
+
+  for (const article of articles) {
+    if (seenTitles.has(article.metadata.title)) {
+      continue;
+    }
+
+    seenTitles.add(article.metadata.title);
+    latest.push(article);
+
+    if (latest.length >= limit) {
+      break;
+    }
+  }
+
+  return latest;
+}
+
 export async function getPublishedArticle(slug: string) {
   const articles = await getPublishedArticles();
 

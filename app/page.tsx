@@ -9,6 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { CopyEmailButton } from "./components/copy-email-button";
+import { LatestArticles } from "./components/latest-articles";
 import { SiteFooter } from "./components/site-footer";
 import { SkillGroups } from "./components/skill-groups";
 import { WorkPath } from "./components/work-path";
@@ -80,7 +81,7 @@ function RoleLine({ role }: { role: string }) {
   );
 }
 
-export default function Home() {
+export default async function Home() {
   return (
     <main className="site-main mx-auto w-full max-w-4xl">
       <div className="site-main-inner">
@@ -144,7 +145,13 @@ export default function Home() {
         </div>
         <WorkPath />
       </section>
+      </div>
+      </div>
 
+      <LatestArticles />
+
+      <div className="site-main-inner">
+      <div className="site-text">
       <section className="site-section">
         <SectionLabel>Stack &amp; Tools</SectionLabel>
         <SkillGroups />
