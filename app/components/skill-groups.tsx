@@ -1,14 +1,19 @@
+import { SkillBadgeGroup } from "@/app/components/skill-badge-group";
 import { skills } from "../data";
 
 export function SkillGroups() {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-4">
       {skills.map((group) => (
-        <p key={group.label} className="text-sm leading-relaxed break-words">
-          <span className="text-text">{group.label}</span>
-          <span className="text-faint"> — </span>
-          <span className="text-muted">{group.items.join(", ")}</span>
-        </p>
+        <SkillBadgeGroup
+          key={group.label}
+          label={group.label}
+          items={group.items}
+          href={group.href}
+          summary={group.summary}
+          command={group.command}
+          owned={group.owned}
+        />
       ))}
     </div>
   );

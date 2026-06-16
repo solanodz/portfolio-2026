@@ -3,21 +3,20 @@ import {
   Code2,
   Link2,
   Mail,
-  Minus,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { AgentWorkflow } from "./components/agent-workflow";
+import { RoleTitle } from "./components/text-marker";
+import { AdditionalWork } from "./components/additional-work";
 import { CopyEmailButton } from "./components/copy-email-button";
 import { LatestArticles } from "./components/latest-articles";
+import { sectionViewAllLinkClass } from "./components/link-styles";
 import { SiteFooter } from "./components/site-footer";
 import { SkillGroups } from "./components/skill-groups";
 import { WorkPath } from "./components/work-path";
-import {
-  additional,
-  languages,
-  profile,
-} from "./data";
+import { languages, profile } from "./data";
 
 function SectionLabel({
   children,
@@ -40,7 +39,7 @@ const linkIcons = {
 } as const;
 
 const headerLinkClass =
-  "group inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-sm text-secondary transition-colors hover:border-line-strong hover:bg-bg-hover hover:text-text";
+  "group inline-flex items-center gap-1.5 border border-line px-2.5 py-1 text-sm text-secondary transition-colors hover:border-line-strong hover:bg-bg-hover hover:text-text";
 
 function HeaderLink({
   href,
@@ -75,8 +74,8 @@ function HeaderLink({
 
 function RoleLine({ role }: { role: string }) {
   return (
-    <p className="mb-4 text-lg font-semibold leading-snug text-emerald-400 sm:mb-5 sm:text-xl">
-      {role}
+    <p className="mb-4 text-lg font-semibold leading-snug sm:mb-5 sm:text-xl">
+      <RoleTitle>{role}</RoleTitle>
     </p>
   );
 }
@@ -135,10 +134,7 @@ export default async function Home() {
       <section className="site-section">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
           <SectionLabel className="mb-0">Experience</SectionLabel>
-          <Link
-            href="/experience"
-            className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-muted transition-colors hover:border-line-strong hover:bg-bg-hover hover:text-text"
-          >
+          <Link href="/experience" className={sectionViewAllLinkClass}>
             View all
             <ArrowUpRight className="h-3 w-3 shrink-0" strokeWidth={1.5} />
           </Link>
@@ -148,7 +144,13 @@ export default async function Home() {
       </div>
       </div>
 
-      <LatestArticles />
+      <div className="site-main-inner">
+        <AgentWorkflow />
+      </div>
+
+      <div className="site-main-inner">
+        <LatestArticles />
+      </div>
 
       <div className="site-main-inner">
       <div className="site-text">
@@ -159,17 +161,7 @@ export default async function Home() {
 
       <section className="site-section">
         <SectionLabel>Also worked on</SectionLabel>
-        <ul className="space-y-2">
-          {additional.map((item, i) => (
-            <li key={i} className="flex gap-2.5">
-              <Minus
-                className="mt-[9px] h-3 w-3 shrink-0 text-faint"
-                strokeWidth={1.5}
-              />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
+        <AdditionalWork />
       </section>
 
       <section className="site-section">

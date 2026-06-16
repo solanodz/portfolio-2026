@@ -41,7 +41,7 @@ export function ArticlePreviewCard({
             {keywords.map((keyword) => (
               <span
                 key={keyword}
-                className="shrink-0 rounded bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-emerald-600 dark:text-emerald-300"
+                className="shrink-0 bg-emerald-400/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-emerald-600 dark:text-emerald-300"
               >
                 {keyword}
               </span>

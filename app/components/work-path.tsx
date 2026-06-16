@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import { experience, type IconName } from "../data";
+import { RoleTitle } from "@/app/components/text-marker";
+import { experience, profile, type IconName } from "../data";
 import { ProjectDetail } from "./project-detail";
 
 const iconMap: Record<IconName, LucideIcon> = {
@@ -253,9 +254,16 @@ function WorkGroup({
         <div className="col-start-2 min-w-0">
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <span className="font-medium text-text">{job.company}</span>
-            <span className="text-emerald-400">· {job.role}</span>
+            <span className="text-secondary">
+              ·{" "}
+              {job.role === profile.role ? (
+                <RoleTitle>{job.role}</RoleTitle>
+              ) : (
+                job.role
+              )}
+            </span>
             {job.current ? (
-              <span className="rounded bg-emerald-400 px-1.5 py-0.5 text-[11px] font-medium leading-none text-white dark:text-black">
+              <span className="border border-line px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted">
                 Now
               </span>
             ) : null}

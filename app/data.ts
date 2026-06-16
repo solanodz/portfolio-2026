@@ -337,6 +337,10 @@ export const experience: Experience[] = [
 export type SkillGroup = {
   label: string;
   items: string[];
+  href?: string;
+  summary?: string;
+  command?: string;
+  owned?: boolean;
 };
 
 export const skills: SkillGroup[] = [
@@ -395,11 +399,109 @@ export const skills: SkillGroup[] = [
   },
 ];
 
-export const additional: string[] = [
-  "Built and deployed RAG chatbots end-to-end: document ingestion, chunking, embedding management, vector store integration and LLM response generation.",
-  "Web scraping pipelines using BeautifulSoup and requests for data collection and enrichment.",
-  "MCP server integrations to connect AI models with external tools and data sources.",
-  "Personal projects using Supabase (PostgreSQL) for backend data management.",
+export type AgentSkillGroup = {
+  label: string;
+  href?: string;
+  summary: string;
+  items: string[];
+  owned?: boolean;
+};
+
+export const agentSkills: AgentSkillGroup[] = [
+  {
+    label: "Harness Engineering",
+    href: "https://github.com/solanodz/harness-engineering-skills",
+    summary:
+      "My npm skill pack — install once, then agents follow scope, verify, and resume workflows.",
+    owned: true,
+    items: [
+      "Scaffold",
+      "Audit",
+      "State",
+      "Lifecycle",
+      "Scope",
+      "Verification",
+    ],
+  },
+  {
+    label: "Matt Pocock",
+    href: "https://skills.sh/mattpocock/skills",
+    summary: "Planning, prototyping, and code review.",
+    items: ["Grill me", "TDD", "Diagnose", "Prototype", "Review", "To issues"],
+  },
+  {
+    label: "Superpowers",
+    href: "https://github.com/obra/superpowers",
+    summary: "Structured debugging, TDD, and agent workflows.",
+    items: [
+      "Brainstorming",
+      "Systematic debugging",
+      "Test-driven development",
+      "Writing plans",
+      "Verification before completion",
+      "Executing plans",
+    ],
+  },
+  {
+    label: "Vercel",
+    href: "https://skills.sh/vercel",
+    summary: "Next.js, AI SDK, and production frontend patterns.",
+    items: [
+      "Next.js",
+      "AI SDK",
+      "React best practices",
+      "Verification",
+      "shadcn/ui",
+      "AI Gateway",
+    ],
+  },
+  {
+    label: "Cursor",
+    href: "https://cursor.com/docs/context/skills",
+    summary: "Reviews, PR workflow, and agent tooling.",
+    items: ["Review", "SDK", "Babysit", "Split to PRs", "Create skill", "Bugbot review"],
+  },
+  {
+    label: "Supabase",
+    href: "https://supabase.com/docs/guides/getting-started/ai-skills",
+    summary: "Postgres, auth, and backend integration.",
+    items: ["Supabase", "Postgres best practices"],
+  },
+  {
+    label: "Writing",
+    summary: "Blog posts, articles, and long-form drafts.",
+    items: ["Edit article", "Writing shape", "Writing fragments", "Writing beats"],
+  },
+];
+
+export type AdditionalWork = {
+  lead: string;
+  detail: string;
+};
+
+export const additional: AdditionalWork[] = [
+  {
+    lead: "Harness Engineering skills",
+    detail:
+      "npm package (harness-skills) with agent skills for Cursor, Claude Code, and Codex — npx harness-skills install.",
+  },
+  {
+    lead: "RAG chatbots end-to-end",
+    detail:
+      "Document ingestion, chunking, embedding management, vector store integration, and LLM response generation.",
+  },
+  {
+    lead: "Web scraping pipelines",
+    detail: "Data collection and enrichment with BeautifulSoup and requests.",
+  },
+  {
+    lead: "MCP server integrations",
+    detail: "Connecting AI models with external tools and data sources.",
+  },
+  {
+    lead: "Supabase-backed projects",
+    detail: "Personal projects using PostgreSQL for backend data management.",
+  },
 ];
 
 export const languages = [

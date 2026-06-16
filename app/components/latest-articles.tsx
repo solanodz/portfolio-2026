@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
 import { ArticlePreviewCard } from "@/app/components/article-preview-card";
+import { sectionViewAllLinkClass } from "@/app/components/link-styles";
 import { getLatestPublishedArticles } from "@/lib/articles";
 
 export async function LatestArticles({ limit = 3 }: { limit?: number }) {
@@ -12,13 +13,10 @@ export async function LatestArticles({ limit = 3 }: { limit?: number }) {
   }
 
   return (
-    <section className="site-section site-articles-row">
+    <section className="site-section">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
         <h2 className="text-sm font-medium text-muted">Latest writing</h2>
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-muted transition-colors hover:border-line-strong hover:bg-bg-hover hover:text-text"
-        >
+        <Link href="/blog" className={sectionViewAllLinkClass}>
           View all
           <ArrowUpRight className="h-3 w-3 shrink-0" strokeWidth={1.5} />
         </Link>
