@@ -76,7 +76,7 @@ export function ArticleIndex({ headings }: { headings: ArticleHeading[] }) {
                 className={[
                   "-ml-px border-l",
                   heading.depth === 3 ? "pl-8" : "pl-5",
-                  isActive ? "border-emerald-400" : "border-transparent",
+                  isActive ? "border-yellow-400" : "border-transparent",
                 ].join(" ")}
               >
                 <a

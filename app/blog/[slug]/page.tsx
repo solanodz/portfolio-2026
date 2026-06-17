@@ -5,7 +5,9 @@ import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
 
 import { ArticleIndex } from "@/app/components/article-index";
+import { ArticleKeywordBadge } from "@/app/components/article-keyword-badge";
 import { mdxComponents } from "@/app/components/mdx-components";
+import { MarkerHighlight } from "@/app/components/text-marker";
 import { ReadingProgress } from "@/app/components/reading-progress";
 import { RelatedArticles } from "@/app/components/related-articles";
 import { SiteFooter } from "@/app/components/site-footer";
@@ -83,7 +85,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         <div className="article-layout-content">
           <header>
             <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[2rem] sm:leading-tight">
-              {article.metadata.title}
+              <MarkerHighlight className="text-2xl sm:text-[2rem] sm:leading-tight">
+                {article.metadata.title}
+              </MarkerHighlight>
             </h1>
             <p className="mt-4 text-muted">{article.metadata.summary}</p>
             <div className="mt-4 space-y-1 font-mono text-xs text-faint">
@@ -94,12 +98,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </div>
             <div className="mt-4 flex flex-wrap gap-1">
               {article.metadata.keywords.map((keyword) => (
-                <span
-                  key={keyword}
-                  className="shrink-0 rounded bg-emerald-400 px-2 py-1 text-[11px] font-medium leading-none text-white dark:text-black"
-                >
-                  {keyword}
-                </span>
+                <ArticleKeywordBadge key={keyword}>{keyword}</ArticleKeywordBadge>
               ))}
             </div>
           </header>

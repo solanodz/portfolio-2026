@@ -277,7 +277,7 @@ body {
   }
 
   .article-link:hover {
-    text-decoration-color: #34d399;
+    text-decoration-color: #fde047;
   }
 
   [data-theme="dark"] .article-link {
@@ -321,7 +321,6 @@ body {
   [data-rehype-pretty-code-title] {
     border: 1px solid var(--border);
     border-bottom: 0;
-    border-radius: 0.75rem 0.75rem 0 0;
     background: var(--bg-subtle);
     padding: 0.5rem 1rem;
     font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
@@ -331,7 +330,6 @@ body {
 
   [data-rehype-pretty-code-title] + pre {
     margin-top: 0;
-    border-radius: 0 0 0.75rem 0.75rem;
   }
 
   [data-highlighted-line] {

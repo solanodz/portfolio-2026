@@ -26,7 +26,7 @@ export function CodeBlock({ language, children }: CodeBlockProps) {
   return (
     <div
       data-code-block
-      className="overflow-hidden rounded-xl border border-line bg-bg-subtle"
+      className="overflow-hidden border border-line bg-bg-subtle"
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-2">
         <span className="font-mono text-xs text-muted">{language}</span>

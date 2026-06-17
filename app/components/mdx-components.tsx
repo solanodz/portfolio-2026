@@ -39,7 +39,7 @@ function ArticleCode(props: ComponentPropsWithoutRef<"code">) {
     <code
       {...props}
       className={cn(
-        "rounded border border-line bg-bg-subtle px-1 py-0.5 font-mono text-[0.9em] text-text",
+        "border border-line bg-bg-subtle px-1 py-0.5 font-mono text-[0.9em] text-text",
         props.className,
       )}
     />
@@ -120,7 +120,7 @@ export const mdxComponents = {
   img: (props: ComponentPropsWithoutRef<"img">) => (
     <img
       {...props}
-      className={cn("mt-6 rounded-lg border border-line", props.className)}
+      className={cn("mt-6 border border-line", props.className)}
       alt={props.alt ?? ""}
     />
   ),

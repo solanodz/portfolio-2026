@@ -49,7 +49,7 @@ export function Mermaid({ chart }: MermaidProps) {
 
   if (error) {
     return (
-      <pre className="overflow-x-auto rounded-lg border border-line bg-bg-subtle p-4 text-xs text-muted">
+      <pre className="overflow-x-auto border border-line bg-bg-subtle p-4 text-xs text-muted">
         {error}
       </pre>
     );
@@ -57,7 +57,7 @@ export function Mermaid({ chart }: MermaidProps) {
 
   if (!svg) {
     return (
-      <div className="rounded-lg border border-line bg-bg-subtle p-4 text-sm text-muted">
+      <div className="border border-line bg-bg-subtle p-4 text-sm text-muted">
         Rendering diagram...
       </div>
     );
@@ -65,7 +65,7 @@ export function Mermaid({ chart }: MermaidProps) {
 
   return (
     <div
-      className="overflow-x-auto rounded-lg border border-line bg-bg-subtle p-4"
+      className="overflow-x-auto border border-line bg-bg-subtle p-4"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

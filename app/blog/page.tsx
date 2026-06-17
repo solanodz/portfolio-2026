@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
 import { SiteFooter } from "../components/site-footer";
+import { ArticleKeywordBadge } from "../components/article-keyword-badge";
 import { formatArticleDate, getPublishedArticles } from "@/lib/articles";
 
 export const metadata: Metadata = {
@@ -35,11 +36,11 @@ export default async function BlogPage() {
                       href={`/blog/${article.slug}`}
                       className="group inline-flex items-center gap-1.5 text-lg font-semibold"
                     >
-                      <span className="text-text transition-colors group-hover:text-emerald-400">
+                      <span className="text-text transition-colors group-hover:text-secondary">
                         {article.metadata.title}
                       </span>
                       <ArrowUpRight
-                        className="h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-emerald-400"
+                        className="h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-secondary"
                         strokeWidth={1.5}
                       />
                     </Link>
@@ -49,12 +50,7 @@ export default async function BlogPage() {
                     <p className="mt-3 text-secondary">{article.metadata.summary}</p>
                     <div className="mt-3 flex flex-wrap gap-1">
                       {article.metadata.keywords.map((keyword) => (
-                        <span
-                          key={keyword}
-                          className="shrink-0 rounded bg-emerald-400 px-2 py-1 text-[11px] font-medium leading-none text-white dark:text-black"
-                        >
-                          {keyword}
-                        </span>
+                        <ArticleKeywordBadge key={keyword}>{keyword}</ArticleKeywordBadge>
                       ))}
                     </div>
                   </article>
