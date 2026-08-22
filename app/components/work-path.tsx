@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import {
+  AlertCircle,
   Brain,
   Briefcase,
   ChevronDown,
@@ -50,13 +51,20 @@ function CompanyLogo({
   src,
   alt,
   href,
+  backgroundClassName,
 }: {
   src: string;
   alt: string;
   href?: string;
+  backgroundClassName?: string;
 }) {
   const logo = (
-    <span className="block h-8 w-8 shrink-0 overflow-hidden rounded-md border-2 border-line-logo">
+    <span
+      className={cn(
+        "block h-8 w-8 shrink-0 overflow-hidden rounded-md border-2 border-line-logo",
+        backgroundClassName,
+      )}
+    >
       <Image
         src={src}
         alt={alt}
@@ -64,7 +72,10 @@ function CompanyLogo({
         height={64}
         quality={100}
         unoptimized
-        className="size-full object-cover"
+        className={cn(
+          "size-full",
+          backgroundClassName ? "object-contain p-1" : "object-cover",
+        )}
       />
     </span>
   );
@@ -232,6 +243,52 @@ function ClientGroup({
   );
 }
 
+const obscuredBlurMaskClassName = [
+  "[mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-24px),transparent),linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]",
+  "[mask-composite:intersect]",
+  "[-webkit-mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-24px),transparent),linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]",
+  "[-webkit-mask-composite:source-in]",
+].join(" ");
+
+const inProgressCalloutClassName =
+  "inline-flex items-center gap-1.5 box-decoration-clone border border-amber-300/35 bg-amber-50/90 px-3 py-1.5 text-amber-950 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-50/90";
+
+function ObscuredExperienceDetails({
+  message,
+  children,
+  className,
+}: {
+  message: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("relative pt-2 pl-0 sm:pl-7", className)}>
+      <div
+        className={cn(
+          "pointer-events-none select-none blur-sm",
+          obscuredBlurMaskClassName,
+        )}
+        aria-hidden="true"
+      >
+        {children}
+      </div>
+      <div className="absolute inset-0 z-10 flex items-center justify-center px-6 py-8">
+        <p className="max-w-md text-center text-sm leading-relaxed sm:text-[15px]">
+          <span className={inProgressCalloutClassName}>
+            <AlertCircle
+              className="h-3.5 w-3.5 shrink-0 text-amber-600/65 dark:text-amber-400/55"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            {message}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function WorkGroup({
   job,
   detailed = false,
@@ -239,6 +296,22 @@ function WorkGroup({
   job: (typeof experience)[number];
   detailed?: boolean;
 }) {
+  const clientDetails = job.clients ? (
+    <>
+      <p className="text-sm leading-relaxed text-secondary">{job.summary}</p>
+      <div>
+        {job.clients.map((client) => (
+          <ClientGroup
+            key={client.id}
+            client={client}
+            job={job}
+            detailed={detailed}
+          />
+        ))}
+      </div>
+    </>
+  ) : null;
+
   return (
     <div>
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:flex sm:items-center sm:gap-3">
@@ -247,6 +320,7 @@ function WorkGroup({
             src={job.logo}
             alt={job.company}
             href={job.website}
+            backgroundClassName={job.logoBackground}
           />
         ) : (
           <NodeIcon name={job.icon} className="text-text" />
@@ -275,22 +349,17 @@ function WorkGroup({
       </div>
 
       {job.clients ? (
-        <div className="mt-1.5 pl-0 sm:pl-7">
-          <p className="text-sm leading-relaxed text-secondary">{job.summary}</p>
-        </div>
-      ) : null}
-
-      {job.clients ? (
-        <div className="pl-0 sm:pl-7">
-          {job.clients.map((client) => (
-            <ClientGroup
-              key={client.id}
-              client={client}
-              job={job}
-              detailed={detailed}
-            />
-          ))}
-        </div>
+        job.obscureDetails ? (
+          <ObscuredExperienceDetails
+            message={
+              job.obscureDetailsMessage ?? "Recently started"
+            }
+          >
+            {clientDetails}
+          </ObscuredExperienceDetails>
+        ) : (
+          <div className="mt-1.5 pl-0 sm:pl-7">{clientDetails}</div>
+        )
       ) : job.context && job.highlights ? (
         <div className="mt-1.5 pl-0 sm:pl-7">
           <EngagementBlock

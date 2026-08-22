@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/experience", label: "Experience" },
-  { href: "/blog", label: "Blog" },
 ] as const;
 
 function isActive(pathname: string, href: string) {

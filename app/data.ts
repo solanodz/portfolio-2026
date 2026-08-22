@@ -65,7 +65,10 @@ export type Experience = {
   color: AccentColor;
   icon: IconName;
   logo?: string;
+  logoBackground?: string;
   website?: string;
+  obscureDetails?: boolean;
+  obscureDetailsMessage?: string;
   summary: string;
   stack: string[];
   context?: string;
@@ -75,11 +78,36 @@ export type Experience = {
 
 export const experience: Experience[] = [
   {
+    id: "EXP-003",
+    company: "Pi Consulting",
+    role: "AI Engineer",
+    period: "Jun 2026 — Present",
+    current: true,
+    color: "yellow",
+    icon: "briefcase",
+    logo: "/pi-consulting-logo.png",
+    logoBackground: "bg-black",
+    website: "https://piconsulting.com.ar/",
+    obscureDetails: true,
+    obscureDetailsMessage: "Recently started",
+    summary:
+      "Data & AI consulting — embedded with enterprise clients to design and ship production AI systems.",
+    stack: ["Python", "OpenAI API", "FastAPI", "Azure", "SQL Server"],
+    clients: [
+      {
+        id: "CLI-SANCOR",
+        context: "Sancor Seguros · Insurance group",
+        summary:
+          "Embedded AI engineering for Grupo Sancor Seguros — production LLM backends and agent workflows for the insurance group.",
+        highlights: [],
+      },
+    ],
+  },
+  {
     id: "EXP-002",
     company: "Tecnología BI",
     role: "AI Engineer",
-    period: "Jun 2024 — Present",
-    current: true,
+    period: "Jun 2024 — Jun 2026",
     color: "teal",
     icon: "briefcase",
     logo: "/tecbi_logo.jpeg",

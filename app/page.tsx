@@ -11,7 +11,6 @@ import { AgentWorkflow } from "./components/agent-workflow";
 import { RoleTitle } from "./components/text-marker";
 import { AdditionalWork } from "./components/additional-work";
 import { CopyEmailButton } from "./components/copy-email-button";
-import { LatestArticles } from "./components/latest-articles";
 import { sectionViewAllLinkClass } from "./components/link-styles";
 import { SiteFooter } from "./components/site-footer";
 import { SkillGroups } from "./components/skill-groups";
@@ -146,10 +145,6 @@ export default async function Home() {
 
       <div className="site-main-inner">
         <AgentWorkflow />
-      </div>
-
-      <div className="site-main-inner">
-        <LatestArticles />
       </div>
 
       <div className="site-main-inner">
