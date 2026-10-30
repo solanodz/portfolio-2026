@@ -61,7 +61,7 @@ function CompanyLogo({
   const logo = (
     <span
       className={cn(
-        "block h-8 w-8 shrink-0 overflow-hidden rounded-md border-2 border-line-logo",
+        "block h-8 w-8 shrink-0 overflow-hidden border border-line-logo",
         backgroundClassName,
       )}
     >
@@ -251,7 +251,7 @@ const obscuredBlurMaskClassName = [
 ].join(" ");
 
 const inProgressCalloutClassName =
-  "inline-flex items-center gap-1.5 box-decoration-clone border border-amber-300/35 bg-amber-50/90 px-3 py-1.5 text-amber-950 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-50/90";
+  "inline-flex items-center gap-1.5 border border-line bg-bg-subtle px-3 py-1.5 text-sm text-secondary";
 
 function ObscuredExperienceDetails({
   message,
@@ -277,7 +277,7 @@ function ObscuredExperienceDetails({
         <p className="max-w-md text-center text-sm leading-relaxed sm:text-[15px]">
           <span className={inProgressCalloutClassName}>
             <AlertCircle
-              className="h-3.5 w-3.5 shrink-0 text-amber-600/65 dark:text-amber-400/55"
+              className="h-3.5 w-3.5 shrink-0 text-faint"
               strokeWidth={1.75}
               aria-hidden
             />

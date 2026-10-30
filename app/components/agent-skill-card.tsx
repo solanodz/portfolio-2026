@@ -5,9 +5,9 @@ import type { AgentSkillGroup } from "../data";
 
 export function AgentSkillCard({ group }: { group: AgentSkillGroup }) {
   return (
-    <article className="h-full border border-line px-4 py-4 transition-colors hover:bg-bg-hover sm:px-5 sm:py-5">
+    <article className="h-full border border-line px-4 py-4 transition-colors hover:border-line-strong hover:bg-bg-subtle sm:px-5 sm:py-5">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="text-sm font-semibold text-text">{group.label}</h3>
+        <h3 className="text-sm font-medium text-text">{group.label}</h3>
         {group.href ? (
           <Link
             href={group.href}
@@ -25,7 +25,7 @@ export function AgentSkillCard({ group }: { group: AgentSkillGroup }) {
         {group.items.map((item) => (
           <span
             key={item}
-            className="border border-line bg-bg-subtle px-2 py-0.5 text-xs font-medium text-secondary"
+            className="border border-line px-2 py-0.5 text-xs font-medium text-muted"
           >
             {item}
           </span>

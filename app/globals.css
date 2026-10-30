@@ -7,27 +7,27 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 /*
-  Linear-inspired tokens — light & dark via data-theme (Next.js pattern).
+  Quiet editorial tokens — neutrals first; yellow used sparingly as the sole accent.
 */
 :root,
 [data-theme="light"] {
   --bg: #ffffff;
   --bg-subtle: #fafafa;
-  --bg-elevated: #f4f5f6;
-  --bg-hover: #eceef0;
+  --bg-elevated: #f6f6f5;
+  --bg-hover: #f0f0ee;
 
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
-  --border-logo: rgba(0, 0, 0, 0.12);
+  --border: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --border-logo: rgba(0, 0, 0, 0.1);
 
-  --text: #08090a;
-  --text-secondary: #3f4248;
-  --text-muted: #6b7079;
-  --text-faint: #9b9ea6;
-  --tree-line: #c4c7ce;
+  --text: #0a0a0a;
+  --text-secondary: #3d3d3d;
+  --text-muted: #6b6b6b;
+  --text-faint: #9a9a9a;
+  --tree-line: #d4d4d4;
 
-  --accent: #5e6ad2;
-  --accent-soft: rgba(94, 106, 210, 0.12);
+  --accent: #ca8a04;
+  --accent-soft: rgba(250, 204, 21, 0.22);
 
   --c-indigo: #5e6ad2;
   --c-teal: #0d9488;
@@ -108,6 +108,7 @@ html {
   text-rendering: optimizeLegibility;
   color-scheme: light;
   overflow-x: clip;
+  scrollbar-gutter: stable;
 }
 
 html[data-theme="dark"] {
@@ -177,7 +178,8 @@ body {
   }
 
   :root {
-    --site-frame-inset: calc((100vw - min(56rem, 100vw)) / 2);
+    /* Prefer % over 100vw so frame lines match layout width (avoids scrollbar overflow). */
+    --site-frame-inset: max(0px, calc((100% - min(56rem, 100%)) / 2));
     --site-frame-nav-inset: calc(var(--site-frame-inset) + 1.5rem);
   }
 
@@ -236,6 +238,74 @@ body {
     .site-nav-inset {
       padding-left: var(--site-frame-inset);
       padding-right: var(--site-frame-nav-inset);
+    }
+  }
+
+  .article-layout {
+    @apply grid max-w-full grid-cols-1 items-start overflow-x-clip;
+  }
+
+  .article-layout > * {
+    min-width: 0;
+  }
+
+  .article-layout-content {
+    @apply mx-auto min-w-0 w-full max-w-[42rem] self-start px-6 sm:px-10;
+  }
+
+  .article-layout-content-flush {
+    @apply relative min-w-0 w-full max-w-full overflow-hidden px-0;
+  }
+
+  .site-main-article {
+    @apply overflow-x-clip pt-0;
+  }
+
+  .site-main-article .article-layout-sidebar {
+    @apply pt-8 sm:pt-10;
+  }
+
+  @media (min-width: 1400px) {
+    .article-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 56rem) minmax(0, 1fr);
+    }
+
+    .article-layout-content {
+      @apply mx-0 max-w-none;
+    }
+
+    /* Center column sits exactly between the vertical frame lines. */
+    .site-main-article .article-layout {
+      grid-template-columns: var(--site-frame-inset) minmax(0, 1fr) var(--site-frame-inset);
+    }
+  }
+
+  .article-layout-sidebar {
+    @apply sticky top-16 hidden max-h-[calc(100vh-4rem)] w-full max-w-full self-start min-[1400px]:block;
+  }
+
+  .article-link {
+    cursor: pointer;
+    font-weight: 500;
+    color: #000;
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    transition: text-decoration-color 150ms ease;
+  }
+
+  .article-link:hover {
+    text-decoration-color: var(--accent);
+  }
+
+  [data-theme="dark"] .article-link {
+    color: #fff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .article-link {
+      color: #fff;
     }
   }
 }
@@ -317,8 +387,8 @@ body {
   --text-muted: #8a8f98;
   --text-faint: #62666d;
   --tree-line: #32353d;
-  --accent: #7c82ff;
-  --accent-soft: rgba(124, 130, 255, 0.14);
+  --accent: #f2c94c;
+  --accent-soft: rgba(242, 201, 76, 0.18);
   --c-indigo: #7c82ff;
   --c-teal: #4cb9a2;
   --c-coral: #eb5757;
@@ -351,8 +421,8 @@ body {
     --text-muted: #8a8f98;
     --text-faint: #62666d;
     --tree-line: #32353d;
-    --accent: #7c82ff;
-    --accent-soft: rgba(124, 130, 255, 0.14);
+    --accent: #f2c94c;
+    --accent-soft: rgba(242, 201, 76, 0.18);
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);

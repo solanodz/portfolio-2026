@@ -2,10 +2,11 @@ import { cn } from "@/lib/utils";
 
 import { profile } from "../data";
 
+/** Sole accent mark — soft yellow highlighter for rare emphasis only. */
 const highlightClassName =
-  "box-decoration-clone bg-yellow-300/85 px-[0.3em] py-[0.01em] text-neutral-950";
+  "box-decoration-clone bg-yellow-200/80 px-[0.22em] py-[0.02em] text-neutral-950 dark:bg-yellow-300/70";
 
-/** Yellow highlighter — Tailwind only. */
+/** Yellow highlighter — use sparingly (role, open article title). */
 export function MarkerHighlight({
   children,
   className,

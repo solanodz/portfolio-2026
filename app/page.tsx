@@ -38,7 +38,7 @@ const linkIcons = {
 } as const;
 
 const headerLinkClass =
-  "group inline-flex items-center gap-1.5 border border-line px-2.5 py-1 text-sm text-secondary transition-colors hover:border-line-strong hover:bg-bg-hover hover:text-text";
+  "group inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-text";
 
 function HeaderLink({
   href,
