@@ -92,59 +92,18 @@ export const experience: Experience[] = [
     logo: "/pi-consulting-logo.png",
     logoBackground: "bg-black",
     website: "https://piconsulting.com.ar/",
+    obscureDetails: true,
+    obscureDetailsMessage: "Recently started",
     summary:
       "Data & AI consulting — embedded with enterprise clients to design and ship production AI systems.",
-    stack: [
-      "Python",
-      "Azure",
-      "Azure Document Intelligence",
-      "SharePoint",
-      "Microsoft Entra ID",
-      "Excel",
-      "OpenAI API",
-      "FastAPI",
-      "SQL Server",
-    ],
+    stack: ["Python", "OpenAI API", "FastAPI", "Azure", "SQL Server"],
     clients: [
       {
-        id: "CLI-SANCOR",
-        context: "Sancor Seguros",
+        id: "CLI-001",
+        context: "Enterprise client",
         summary:
-          "Embedded AI engineering for Grupo Sancor Seguros — document extraction and automation for insurance operations.",
-        stack: [
-          "Python",
-          "Azure Document Intelligence",
-          "SharePoint",
-          "Microsoft Entra ID",
-          "Excel",
-          "Azure",
-        ],
-        highlights: [
-          {
-            title: "OCR Policy Document Extraction",
-            icon: "scan-search",
-            detail: [
-              {
-                type: "p",
-                text: "Automated end-of-month pipeline for Sancor Seguros that reads insurance PDFs from SharePoint, extracts the fields needed for policy issuance with Azure Document Intelligence (OCR), and writes them into the emission Excel.",
-              },
-              {
-                type: "p",
-                text: "What I built and owned:",
-              },
-              {
-                type: "ul",
-                items: [
-                  "Authenticate against Azure / SharePoint with Microsoft Entra ID to access the document server securely.",
-                  "Pull PDFs from a designated SharePoint folder on Azure.",
-                  "Run Azure Document Intelligence over each file to extract structured policy fields.",
-                  "Map extracted values into the Sancor policy-issuance Excel workbook.",
-                  "Schedule the full run to execute automatically at month-end — no manual kickoff.",
-                ],
-              },
-            ],
-          },
-        ],
+          "Embedded AI engineering for an enterprise client — production systems and automation workflows.",
+        highlights: [],
       },
     ],
   },
