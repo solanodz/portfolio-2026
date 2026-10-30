@@ -15,7 +15,8 @@ import { sectionViewAllLinkClass } from "./components/link-styles";
 import { SiteFooter } from "./components/site-footer";
 import { SkillGroups } from "./components/skill-groups";
 import { WorkPath } from "./components/work-path";
-import { languages, profile } from "./data";
+import { experience, languages, profile } from "./data";
+import { formatTotalExperienceLabel } from "@/lib/experience-duration";
 
 function SectionLabel({
   children,
@@ -132,7 +133,12 @@ export default async function Home() {
 
       <section className="site-section">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
-          <SectionLabel className="mb-0">Experience</SectionLabel>
+          <div className="min-w-0">
+            <SectionLabel className="mb-0">Experience</SectionLabel>
+            <p className="mt-1 font-mono text-xs text-faint">
+              Total experience: {formatTotalExperienceLabel(experience)}
+            </p>
+          </div>
           <Link href="/experience" className={sectionViewAllLinkClass}>
             View all
             <ArrowUpRight className="h-3 w-3 shrink-0" strokeWidth={1.5} />

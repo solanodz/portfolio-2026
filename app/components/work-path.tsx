@@ -17,6 +17,12 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import { RoleTitle } from "@/app/components/text-marker";
+import { TreeElbow } from "@/app/components/file-tree";
+import {
+  getExperienceCompanyId,
+  getExperienceProjectId,
+} from "@/lib/experience-anchors";
+import { formatExperiencePeriodWithDuration } from "@/lib/experience-duration";
 import { experience, profile, type IconName } from "../data";
 import { ProjectDetail } from "./project-detail";
 
@@ -97,22 +103,15 @@ function CompanyLogo({
   );
 }
 
-function TreeBranch() {
-  return (
-    <div className="relative w-7 shrink-0 self-stretch">
-      <span
-        aria-hidden
-        className="absolute left-[13px] top-[18px] h-[1.5px] w-[18px] -translate-y-1/2 bg-tree-line"
-      />
-    </div>
-  );
-}
-
 function ProjectAccordion({
   parentId,
+  scopeId,
+  jobId,
   highlights,
 }: {
   parentId: string;
+  scopeId: string;
+  jobId: string;
   highlights: (typeof experience)[number]["highlights"];
   detailed?: boolean;
 }) {
@@ -135,55 +134,75 @@ function ProjectAccordion({
   };
 
   return (
-    <div className="relative mt-2 ml-0 sm:mt-3 sm:ml-2">
-      <span
-        aria-hidden
-        className="absolute top-2 bottom-2 left-[13px] w-[1.5px] rounded-full bg-tree-line"
-      />
-      <div>
-        {highlights.map((highlight, index) => {
-          const itemId = `${parentId}-${index}`;
-          const isOpen = openItems.has(itemId);
+    <ul className="mt-3.5 space-y-1">
+      {highlights.map((highlight, index) => {
+        const itemId = `${parentId}-${index}`;
+        const projectAnchorId = getExperienceProjectId(
+          jobId,
+          scopeId,
+          highlight.title,
+        );
+        const isOpen = openItems.has(itemId);
+        const isLast = index === highlights.length - 1;
 
-          return (
-            <div key={highlight.title} className="flex">
-              <TreeBranch />
-              <div className="min-w-0 flex-1 pl-2.5">
-                <button
-                  type="button"
-                  aria-expanded={isOpen}
-                  onClick={() => toggle(itemId)}
-                  className="group/item flex w-full cursor-pointer items-center gap-2.5 rounded-md px-0 py-2 text-left"
+        return (
+          <li key={highlight.title} className="relative">
+            {!isLast ? (
+              <span
+                aria-hidden
+                className="absolute top-[13px] bottom-[-4px] left-[6px] w-px bg-tree-line"
+              />
+            ) : null}
+
+            <div className="flex">
+              <TreeElbow isLast={isLast} />
+              <button
+                type="button"
+                id={projectAnchorId}
+                aria-expanded={isOpen}
+                onClick={() => toggle(itemId)}
+                className="group/item flex min-w-0 flex-1 scroll-mt-24 items-center gap-2 py-1.5 text-left"
+              >
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 text-[13px] leading-snug transition-colors",
+                    isOpen
+                      ? "font-medium text-text"
+                      : "text-secondary group-hover/item:text-text",
+                  )}
                 >
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 text-sm transition-colors",
-                      isOpen
-                        ? "text-text"
-                        : "text-secondary group-hover/item:text-text",
-                    )}
-                  >
-                    {highlight.title}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "h-3.5 w-3.5 shrink-0 text-faint transition-transform",
-                      isOpen && "rotate-180",
-                    )}
-                    strokeWidth={1.5}
-                  />
-                </button>
-                {isOpen ? (
-                  <div className="pr-0 pb-3 pl-0 sm:pr-2">
-                    <ProjectDetail detail={highlight.detail} />
-                  </div>
-                ) : null}
-              </div>
+                  {highlight.title}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-faint transition-transform",
+                    isOpen && "rotate-180",
+                  )}
+                  strokeWidth={1.5}
+                />
+              </button>
             </div>
-          );
-        })}
-      </div>
-    </div>
+
+            {isOpen ? (
+              <div className="relative ml-4 pb-4 pl-4">
+                {!isLast ? (
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 left-[-10px] w-px bg-tree-line"
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="absolute top-0 left-[-10px] h-3 w-px bg-tree-line"
+                  />
+                )}
+                <ProjectDetail detail={highlight.detail} />
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -191,6 +210,8 @@ function EngagementBlock({
   context,
   summary,
   parentId,
+  scopeId,
+  jobId,
   highlights,
   stack,
   detailed = false,
@@ -199,6 +220,8 @@ function EngagementBlock({
   context: string;
   summary: string;
   parentId: string;
+  scopeId: string;
+  jobId: string;
   highlights: NonNullable<(typeof experience)[number]["highlights"]>;
   stack?: string[];
   detailed?: boolean;
@@ -217,7 +240,13 @@ function EngagementBlock({
         </p>
       ) : null}
 
-      <ProjectAccordion parentId={parentId} highlights={highlights} detailed={detailed} />
+      <ProjectAccordion
+        parentId={parentId}
+        scopeId={scopeId}
+        jobId={jobId}
+        highlights={highlights}
+        detailed={detailed}
+      />
     </div>
   );
 }
@@ -236,6 +265,8 @@ function ClientGroup({
       context={client.context}
       summary={client.summary}
       parentId={`${job.id}-${client.id}`}
+      scopeId={client.id}
+      jobId={job.id}
       highlights={client.highlights}
       stack={client.stack ?? job.stack}
       detailed={detailed}
@@ -296,6 +327,8 @@ function WorkGroup({
   job: (typeof experience)[number];
   detailed?: boolean;
 }) {
+  const companyId = getExperienceCompanyId(job.id);
+
   const clientDetails = job.clients ? (
     <>
       <p className="text-sm leading-relaxed text-secondary">{job.summary}</p>
@@ -313,7 +346,7 @@ function WorkGroup({
   ) : null;
 
   return (
-    <div>
+    <div id={companyId} className="scroll-mt-24">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 sm:flex sm:items-center sm:gap-3">
         {job.logo ? (
           <CompanyLogo
@@ -344,7 +377,7 @@ function WorkGroup({
           </div>
         </div>
         <span className="col-span-2 col-start-2 font-mono text-xs text-faint sm:col-auto sm:ml-auto sm:shrink-0">
-          {job.period}
+          {formatExperiencePeriodWithDuration(job.start, job.end)}
         </span>
       </div>
 
@@ -366,6 +399,8 @@ function WorkGroup({
             context={job.context}
             summary={job.summary}
             parentId={job.id}
+            scopeId={job.id}
+            jobId={job.id}
             highlights={job.highlights}
             stack={job.stack}
             detailed={detailed}

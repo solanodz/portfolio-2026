@@ -60,7 +60,10 @@ export type Experience = {
   id: string;
   company: string;
   role: string;
-  period: string;
+  /** Inclusive start month as `YYYY-MM`. */
+  start: string;
+  /** Inclusive end month as `YYYY-MM`, or `null` while current. */
+  end: string | null;
   current?: boolean;
   color: AccentColor;
   icon: IconName;
@@ -81,25 +84,67 @@ export const experience: Experience[] = [
     id: "EXP-003",
     company: "Pi Consulting",
     role: "AI Engineer",
-    period: "Jun 2026 — Present",
+    start: "2026-06",
+    end: null,
     current: true,
     color: "yellow",
     icon: "briefcase",
     logo: "/pi-consulting-logo.png",
     logoBackground: "bg-black",
     website: "https://piconsulting.com.ar/",
-    obscureDetails: true,
-    obscureDetailsMessage: "Recently started",
     summary:
       "Data & AI consulting — embedded with enterprise clients to design and ship production AI systems.",
-    stack: ["Python", "OpenAI API", "FastAPI", "Azure", "SQL Server"],
+    stack: [
+      "Python",
+      "Azure",
+      "Azure Document Intelligence",
+      "SharePoint",
+      "Microsoft Entra ID",
+      "Excel",
+      "OpenAI API",
+      "FastAPI",
+      "SQL Server",
+    ],
     clients: [
       {
         id: "CLI-SANCOR",
-        context: "Sancor Seguros · Insurance group",
+        context: "Sancor Seguros",
         summary:
-          "Embedded AI engineering for Grupo Sancor Seguros — production LLM backends and agent workflows for the insurance group.",
-        highlights: [],
+          "Embedded AI engineering for Grupo Sancor Seguros — document extraction and automation for insurance operations.",
+        stack: [
+          "Python",
+          "Azure Document Intelligence",
+          "SharePoint",
+          "Microsoft Entra ID",
+          "Excel",
+          "Azure",
+        ],
+        highlights: [
+          {
+            title: "OCR Policy Document Extraction",
+            icon: "scan-search",
+            detail: [
+              {
+                type: "p",
+                text: "Automated end-of-month pipeline for Sancor Seguros that reads insurance PDFs from SharePoint, extracts the fields needed for policy issuance with Azure Document Intelligence (OCR), and writes them into the emission Excel.",
+              },
+              {
+                type: "p",
+                text: "What I built and owned:",
+              },
+              {
+                type: "ul",
+                items: [
+                  "Authenticate against Azure / SharePoint with Microsoft Entra ID to access the document server securely.",
+                  "Pull PDFs from a designated SharePoint folder on Azure.",
+                  "Run Azure Document Intelligence over each file to extract structured policy fields.",
+                  "Map extracted values into the Sancor policy-issuance Excel workbook.",
+                  "Schedule the full run to execute automatically at month-end — no manual kickoff.",
+                ],
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -107,7 +152,8 @@ export const experience: Experience[] = [
     id: "EXP-002",
     company: "Tecnología BI",
     role: "AI Engineer",
-    period: "Jun 2024 — Jun 2026",
+    start: "2024-06",
+    end: "2026-06",
     color: "teal",
     icon: "briefcase",
     logo: "/tecbi_logo.jpeg",
@@ -337,7 +383,8 @@ export const experience: Experience[] = [
     company: "Develative",
     context: "Vento Ventures · Venture capital firm",
     role: "AI Engineer",
-    period: "Nov 2025 — Jan 2026",
+    start: "2025-11",
+    end: "2026-01",
     color: "indigo",
     icon: "sparkles",
     logo: "/develative_logo.jpeg",
